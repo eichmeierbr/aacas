@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>aacas</name>
+  <name>example_code</name>
   <version>0.0.0</version>
-  <description>The aacas package</description>
+  <description>The example_code package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
