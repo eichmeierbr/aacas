@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+
+  <param name = "name" value = 'Braden' />
+
+
+  <!--    Nodes to be launched  -->
+<!--     
+  <node name="NODE_NAME" pkg="NODE_PACKAGE" type="NODE_FILE">
+  </node> 
+  -->
+
+
+  <node name="cpp_node" pkg="example_code" type="example_cpp_node" output="screen">
+  </node>
+
+  <node name="python_node" pkg="example_code" type="pyNode.py" output="screen">
+  </node>
+
+
+</launch>
