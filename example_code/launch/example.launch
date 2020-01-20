@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
 
-  <param name = "name" value = 'Braden' />
+
+     <!-- Example Single Line Parameter -->
+  <!-- <param name = "name" value = 'Braden' /> -->
+
+      <!-- Example Include Configuration File -->
+      <rosparam command="load" file="$(find example_code)/config/example_params.yaml"/>
 
 
   <!--    Nodes to be launched  -->
