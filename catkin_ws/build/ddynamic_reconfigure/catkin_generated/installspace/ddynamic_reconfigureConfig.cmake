@@ -67,14 +67,14 @@ set(ddynamic_reconfigure_CONFIG_INCLUDED TRUE)
 
 # set variables for source/devel/install prefixes
 if("FALSE" STREQUAL "TRUE")
-  set(ddynamic_reconfigure_SOURCE_PREFIX /home/stefanzhu/Documents/aacas/catkin_ws/src/ddynamic_reconfigure)
-  set(ddynamic_reconfigure_DEVEL_PREFIX /home/stefanzhu/Documents/aacas/catkin_ws/devel)
+  set(ddynamic_reconfigure_SOURCE_PREFIX /home/eichmeierbr/cmu/aacas/catkin_ws/src/ddynamic_reconfigure)
+  set(ddynamic_reconfigure_DEVEL_PREFIX /home/eichmeierbr/cmu/aacas/catkin_ws/devel)
   set(ddynamic_reconfigure_INSTALL_PREFIX "")
   set(ddynamic_reconfigure_PREFIX ${ddynamic_reconfigure_DEVEL_PREFIX})
 else()
   set(ddynamic_reconfigure_SOURCE_PREFIX "")
   set(ddynamic_reconfigure_DEVEL_PREFIX "")
-  set(ddynamic_reconfigure_INSTALL_PREFIX /home/stefanzhu/Documents/aacas/catkin_ws/install)
+  set(ddynamic_reconfigure_INSTALL_PREFIX /home/eichmeierbr/cmu/aacas/catkin_ws/install)
   set(ddynamic_reconfigure_PREFIX ${ddynamic_reconfigure_INSTALL_PREFIX})
 endif()
 
@@ -154,7 +154,7 @@ foreach(library ${libraries})
     set(lib_path "")
     set(lib "${library}-NOTFOUND")
     # since the path where the library is found is returned we have to iterate over the paths manually
-    foreach(path /home/stefanzhu/Documents/aacas/catkin_ws/install/lib;/home/stefanzhu/Documents/aacas/catkin_ws/devel/lib;/home/stefanzhu/Documents/2020 Spring/Programming_familiarization/Programming Familiarization Part 2/catkin_ws/devel/lib;/opt/ros/kinetic/lib)
+    foreach(path /home/eichmeierbr/cmu/aacas/catkin_ws/install/lib;/home/eichmeierbr/mrsd/tasks/5/three/devel/lib;/home/eichmeierbr/mrsd/tasks/5/two/devel/lib;/home/eichmeierbr/Documents/mrob/devel/lib;/opt/ros/kinetic/lib)
       find_library(lib ${library}
         PATHS ${path}
         NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)

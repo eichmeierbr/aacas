@@ -12,16 +12,16 @@ try:
     from catkin.environment_cache import generate_environment_script
 except ImportError:
     # search for catkin package in all workspaces and prepend to path
-    for workspace in "/home/stefanzhu/Documents/aacas/catkin_ws/devel;/home/stefanzhu/Documents/2020 Spring/Programming_familiarization/Programming Familiarization Part 2/catkin_ws/devel;/opt/ros/kinetic".split(';'):
+    for workspace in "/home/eichmeierbr/mrsd/tasks/5/three/devel;/home/eichmeierbr/mrsd/tasks/5/two/devel;/home/eichmeierbr/Documents/mrob/devel;/opt/ros/kinetic".split(';'):
         python_path = os.path.join(workspace, 'lib/python2.7/dist-packages')
         if os.path.isdir(os.path.join(python_path, 'catkin')):
             sys.path.insert(0, python_path)
             break
     from catkin.environment_cache import generate_environment_script
 
-code = generate_environment_script('/home/stefanzhu/Documents/aacas/catkin_ws/devel/env.sh')
+code = generate_environment_script('/home/eichmeierbr/cmu/aacas/catkin_ws/devel/env.sh')
 
-output_filename = '/home/stefanzhu/Documents/aacas/catkin_ws/build/catkin_generated/setup_cached.sh'
+output_filename = '/home/eichmeierbr/cmu/aacas/catkin_ws/build/catkin_generated/setup_cached.sh'
 with open(output_filename, 'w') as f:
     #print('Generate script for cached setup "%s"' % output_filename)
     f.write('\n'.join(code))

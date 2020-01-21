@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/realsense2_camera_generate_messages_lisp"
-  "/home/stefanzhu/Documents/aacas/catkin_ws/devel/share/common-lisp/ros/realsense2_camera/msg/Extrinsics.lisp"
-  "/home/stefanzhu/Documents/aacas/catkin_ws/devel/share/common-lisp/ros/realsense2_camera/msg/IMUInfo.lisp"
+  "/home/eichmeierbr/cmu/aacas/catkin_ws/devel/share/common-lisp/ros/realsense2_camera/msg/IMUInfo.lisp"
+  "/home/eichmeierbr/cmu/aacas/catkin_ws/devel/share/common-lisp/ros/realsense2_camera/msg/Extrinsics.lisp"
 )
 
 # Per-language clean rules from dependency scanning.

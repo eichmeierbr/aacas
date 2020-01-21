@@ -1,4 +1,4 @@
-prefix=/home/stefanzhu/Documents/aacas/catkin_ws/install
+prefix=/home/eichmeierbr/cmu/aacas/catkin_ws/install
 
 Name: realsense2_description
 Description: Description of realsense2_description

@@ -1,8 +1,8 @@
-prefix=/home/stefanzhu/Documents/aacas/catkin_ws/devel
+prefix=/home/eichmeierbr/cmu/aacas/catkin_ws/devel
 
 Name: ddynamic_reconfigure
 Description: Description of ddynamic_reconfigure
 Version: 0.2.2
-Cflags: -I/home/stefanzhu/Documents/aacas/catkin_ws/src/ddynamic_reconfigure/include
+Cflags: -I/home/eichmeierbr/cmu/aacas/catkin_ws/src/ddynamic_reconfigure/include
 Libs: -L${prefix}/lib -lddynamic_reconfigure
 Requires: roscpp dynamic_reconfigure

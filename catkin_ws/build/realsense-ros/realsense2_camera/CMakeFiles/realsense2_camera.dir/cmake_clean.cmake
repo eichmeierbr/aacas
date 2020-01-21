@@ -2,8 +2,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/realsense2_camera.dir/src/realsense_node_factory.cpp.o"
   "CMakeFiles/realsense2_camera.dir/src/base_realsense_node.cpp.o"
   "CMakeFiles/realsense2_camera.dir/src/t265_realsense_node.cpp.o"
-  "/home/stefanzhu/Documents/aacas/catkin_ws/devel/lib/librealsense2_camera.pdb"
-  "/home/stefanzhu/Documents/aacas/catkin_ws/devel/lib/librealsense2_camera.so"
+  "/home/eichmeierbr/cmu/aacas/catkin_ws/devel/lib/librealsense2_camera.pdb"
+  "/home/eichmeierbr/cmu/aacas/catkin_ws/devel/lib/librealsense2_camera.so"
 )
 
 # Per-language clean rules from dependency scanning.
