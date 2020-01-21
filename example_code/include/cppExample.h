@@ -20,6 +20,8 @@ private:
   ros::Publisher reply_pub_;
   ros::Subscriber sub_;
 
+  int response_step_;
+
   void python_pub_callback(const std_msgs::Float64);
 
 };
