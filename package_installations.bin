@@ -1,9 +1,20 @@
 #!/bin/sh
 
+pip install empy
+
 #package installation for realsense sdk
-cd librealsense
+cd SDK/librealsense
 ./scripts/setup_udev_rules.sh
 ./scripts/patch-realsense-ubuntu-lts.sh
 sudo apt-get update && sudo apt-get upgrade && sudo apt-get dist-upgrade 
 sudo apt-get install git libssl-dev libusb-1.0-0-dev pkg-config libgtk-3-dev 
 sudo apt-get install libglfw3-dev
+
+git submodule update --init --recursive
+
+# librealsense build
+mkdir build
+cd build
+cmake ..
+sudo make uninstall && make clean && make -j8 && sudo make install
+cd ../../..
