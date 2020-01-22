@@ -12,7 +12,7 @@ sudo apt-get install libglfw3-dev
 
 git submodule update --init --recursive
 
-# Realsense build
+# librealsense build
 mkdir build
 cd build
 cmake ..
