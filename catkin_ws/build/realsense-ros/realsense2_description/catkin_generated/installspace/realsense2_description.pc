@@ -1,8 +1,0 @@
-prefix=/home/eichmeierbr/cmu/aacas/catkin_ws/install
-
-Name: realsense2_description
-Description: Description of realsense2_description
-Version: 2.2.12
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
