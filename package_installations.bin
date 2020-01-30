@@ -18,3 +18,7 @@ cd build
 cmake ..
 sudo make uninstall && make clean && make -j8 && sudo make install
 cd ../../..
+
+
+#Velodyn Setup
+sudo apt-get install ros-VERSION-velodyne
