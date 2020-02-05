@@ -1,39 +1,39 @@
 #include <ros/ros.h>
 #include <ros/console.h>
-#include <velodyne/VelodyneScan.h>
+#include <sensor_msgs/PointCloud2.h>
+
+// #include <pcl/point_types.h>
+// #include <pcl/PCLPointCloud2.h>
+// // #include <pcl/conversions.h>
+// #include <pcl_ros/transforms.h>
+
+// #include <velodyne_msgs/VelodyneScan.h>
+#include <string>
+// #include < vector> 
+
+#include <typeinfo>
+using namespace std;
 
 
-string tmp_lidar_msg; 
-chatbot_node::reply_msg tmp_rply_msg;
-string name; 
+// string tmp_lidar_msg; 
+
+// vector<velodyne_msgs::VelodynePacket_<std::allocator<void> > tmp_lidar_msg;
+// auto tmp_lidar_msg;
+// int[1206] data;
 
 
-std::string format(const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    #ifndef _MSC_VER
-        size_t size = std::snprintf( nullptr, 0, format, args) + 1; // Extra space for '\0'
-        std::unique_ptr<char[]> buf( new char[ size ] ); 
-        std::vsnprintf( buf.get(), size, format, args);
-        return std::string(buf.get(), buf.get() + size - 1 ); // We don't want the '\0' inside
-    #else
-        int size = _vscprintf(format, args);
-        std::string result(++size, 0);
-        vsnprintf_s((char*)result.data(), size, _TRUNCATE, format, args);
-        return result;
-    #endif
-    va_end(args);
+// void lidar_msg_callback(const velodyne_msgs::VelodyneScan msg)
+// {
+//     auto tmp_lidar_msg = msg.packets.data;
+// //  ROS_INFO("I heard: [%s]", tmp_msg.c_str());
+// //  ROS_INFO("I heard: [%s]", tmp_lidar_msg.c_str());
+// }
+
+
+void cloud_callback(const sensor_msgs::PointCloud2 &msg){
+    pcl::PointCloud<pcl::PointXYZ>  cloud_temp;
+    pcl::fromROSMsg(msg, cloud_temp);
 }
-
-void lidar_msg_callback(const velodyne::VelodyneScan msg)
-{
- tmp_lidar_msg = msg.message;
-//  ROS_INFO("I heard: [%s]", tmp_msg.c_str());
- ROS_INFO("I heard: [%s]", tmp_sent_msg.c_str());
-//  ROS_INFO(typeid(msg.message).name());
-}
-
 
 
 
@@ -53,26 +53,52 @@ int main(int argc, char **argv) {
 
   while(ros::ok()) {
 
-      cout << tmp_lidar_msg << endl;
-
-    // if (tmp_sent_msg == "Hello"){
-    //     n.getParam("name", name);
-    //     cout << name << endl;
-    //     tmp_rply_msg.message = format("Hello, %s      ", name.c_str());
-    // }
-    // else if (tmp_sent_msg == "What is your name?"){
-    //     tmp_rply_msg.message = "My name is MRSD Siri";
-    // }
-    // else if (tmp_sent_msg == "How are you?"){
-    //     tmp_rply_msg.message = "I'm fine,thank you";
-    // }
-
-
-    // chatter_pub.publish(tmp_rply_msg);
+    //   cout << tmp_lidar_msg << endl;
 
     ros::spinOnce();
     loop_rate.sleep();
   }
 
   return 0;
-}
+}    
+
+
+
+// #include <iostream>
+// // ROS headers
+// #include <ros/ros.h>
+// #include <sensor_msgs/PointCloud2.h>
+// #include <pcl_conversions/pcl_conversions.h>
+// #include <pcl/point_cloud.h>
+// #include <pcl/point_types.h>
+// // point cloud definition
+// typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+// // namspace
+// using namespace std;
+// using namespace sensor_msgs;
+
+    
+// void callback(const sensor_msgs::PointCloud2ConstPtr& pCloud)
+// {
+// // new cloud formation 
+// pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
+// pcl::fromROSMsg (*pCloud, *cloud);
+
+// // cloud is the one you are interested about.
+// }
+
+
+// int main(int argc, char** argv)
+// {
+// ros::init(argc, argv, "lidar_data_process");
+
+// ros::NodeHandle nh;
+// ros::Rate rate(30); // frequency of operation
+
+// // subscribe
+// ros::Subscriber sub = nh.subscribe ("/camera/depth/points", 1, callback);
+
+
+// ros::spin();
+// return 0;
+// }
