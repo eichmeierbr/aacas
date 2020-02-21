@@ -36,41 +36,41 @@
 
 
 
-    // for (std::size_t i = 0; i < cloud->points.size (); ++i)
-    // {
-    //     cout << "x:"<<cloud->points[i].x << endl;
-    //     cout << "y:"<<cloud->points[i].y << endl;
-    //     cout <<"z:"<< cloud->points[i].z << endl;
-    // }
+    for (std::size_t i = 0; i < cloud->points.size (); ++i)
+    {
+        cout << "x:"<<cloud->points[i].x << endl;
+        cout << "y:"<<cloud->points[i].y << endl;
+        cout <<"z:"<< cloud->points[i].z << endl;
+    }
 
     // Create a set of planar coefficients with X=Y=0,Z=1
-    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
-    coefficients->values.resize (4);
-    coefficients->values[0] = coefficients->values[1] = 0;
-    coefficients->values[2] = 1.0;
-    coefficients->values[3] = 0;
+    // pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients ());
+    // coefficients->values.resize (4);
+    // coefficients->values[0] = coefficients->values[1] = 0;
+    // coefficients->values[2] = 1.0;
+    // coefficients->values[3] = 0;
 
-    pcl::ProjectInliers<pcl::PointXYZ> proj;
-    proj.setModelType (pcl::SACMODEL_PLANE);
-    proj.setInputCloud (cloud);
-    proj.setModelCoefficients (coefficients);
-    proj.filter (*cloud_projected);
+    // pcl::ProjectInliers<pcl::PointXYZ> proj;
+    // proj.setModelType (pcl::SACMODEL_PLANE);
+    // proj.setInputCloud (cloud);
+    // proj.setModelCoefficients (coefficients);
+    // proj.filter (*cloud_projected);
     
-    int count =0; 
-    double total=0; 
-    double avg;
-    for (std::size_t i = 0; i < cloud_projected->points.size (); ++i)
-    {
-        // cout << "x:"<<cloud_projected->points[i].x << endl;
-        // cout << "y:"<<cloud_projected->points[i].y << endl;
-        // cout <<"z:"<< cloud_projected->points[i].z << endl;
-        if( -0.2< cloud_projected->points[i].x && cloud_projected->points[i].x < 0.2&& -1< cloud_projected->points[i].y  && cloud_projected->points[i].y< 1){
-            count++;
-            total+= cloud->points[i].z;
-            avg = total/count; 
-            cout << avg << endl;
-        }
-    }
+    // int count =0; 
+    // double total=0; 
+    // double avg;
+    // for (std::size_t i = 0; i < cloud_projected->points.size (); ++i)
+    // {
+    //     // cout << "x:"<<cloud_projected->points[i].x << endl;
+    //     // cout << "y:"<<cloud_projected->points[i].y << endl;
+    //     // cout <<"z:"<< cloud_projected->points[i].z << endl;
+    //     if( -0.2< cloud_projected->points[i].x && cloud_projected->points[i].x < 0.2&& -1< cloud_projected->points[i].y  && cloud_projected->points[i].y< 1){
+    //         count++;
+    //         total+= cloud->points[i].z;
+    //         avg = total/count; 
+    //         cout << avg << endl;
+    //     }
+    // }
 
 
 

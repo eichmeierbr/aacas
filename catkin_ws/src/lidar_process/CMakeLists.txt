@@ -14,8 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
 )
 
-
-
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -106,10 +104,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES lidar_process
-  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp sensor_msgs
-  DEPENDS system_lib
+#  INCLUDE_DIRS include
+#  LIBRARIES lidar_process
+#  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp sensor_msgs
+#  DEPENDS system_lib
 )
 
 ###########
@@ -119,7 +117,7 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-  include
+# include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -137,11 +135,9 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/lidar_process_node.cpp)
+## Rename C++ executable without prefix
 add_executable(get_depth_node src/get_depth.cpp)
 target_link_libraries(get_depth_node ${catkin_LIBRARIES})
-
-
-## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
@@ -210,4 +206,3 @@ target_link_libraries(get_depth_node ${catkin_LIBRARIES})
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
-
