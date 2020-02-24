@@ -20,5 +20,21 @@ sudo make uninstall && make clean && make -j8 && sudo make install
 cd ../../..
 
 
-#Velodyn Setup
-sudo apt-get install ros-VERSION-velodyne
+#Velodyne Setup
+sudo apt-get install ros-melodic-velodyne
+
+# DJI ROS SDK Setup
+cd SDK
+git clone https://github.com/dji-sdk/Onboard-SDK
+cd Onboard-SDK
+mkdir build
+cd build
+cmake ..
+make djiosdk-core
+sudo make install
+sudo apt install ros-melodic-nmea-msgs
+cd ../../../catkin_ws/src
+git clone https://github.com/dji-sdk/Onboard-SDK-ROS.git
+cd ..
+catkin_make
+
