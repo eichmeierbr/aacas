@@ -35,6 +35,7 @@
     // }
 
 
+    print('testings')
 
     for (std::size_t i = 0; i < cloud->points.size (); ++i)
     {
