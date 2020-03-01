@@ -72,6 +72,22 @@
     //     }
     // }
 
+        /*  METHOD #2: Using a Affine3f
+        This method is easier and less error prone
+    */
+    float theta = M_PI/4;
+    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+
+    // Define a translation of 2.5 meters on the x axis.
+    transform_2.translation() << 2.5, 0.0, 0.0;
+
+    // The same rotation matrix as before; theta radians around Z axis
+    transform_2.rotate (Eigen::AngleAxisf (theta, Eigen::Vector3f::UnitZ()));
+
+    // Print the transformation
+    printf ("\nMethod #2: using an Affine3f\n");
+    std::cout << transform_2.matrix() << std::endl;
+
 
 
 
@@ -81,7 +97,7 @@
   
     // Publish the data.
     // pub.publish (output);
-  }
+  } 
   
   
   int main (int argc, char** argv)
