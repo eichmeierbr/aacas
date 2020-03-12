@@ -57,7 +57,7 @@ class DetectorManager():
         classes_name = rospy.get_param('~classes_name', 'coco.names')
         self.classes_path = os.path.join(package_path, 'classes', classes_name)
         self.gpu_id = rospy.get_param('~gpu_id', 0)
-        self.network_img_size = rospy.get_param('~img_size', 608)
+        self.network_img_size = rospy.get_param('~img_size', 416)
         self.publish_image = rospy.get_param('~publish_image')
 
         # Initialize width and height
@@ -93,6 +93,7 @@ class DetectorManager():
         rospy.spin()
 
     def imageCb(self, data):
+        #print(torch.cuda.is_available())
         # Convert the image to OpenCV
         try:
             self.cv_image = self.bridge.imgmsg_to_cv2(data, "rgb8")
@@ -105,7 +106,7 @@ class DetectorManager():
         detection_results.image_header = data.header
 
         # Configure input
-        input_img = self.imagePreProcessing(self.cv_image)
+        input_img = self.imagePreProcessing(self.cv_image) #3, 416, 416
         input_img = Variable(input_img.type(torch.cuda.FloatTensor))
 
         # Get detections from network
@@ -118,6 +119,7 @@ class DetectorManager():
             for detection in detections[0]:
                 # Get xmin, ymin, xmax, ymax, confidence and class
                 xmin, ymin, xmax, ymax, _, conf, det_class = detection
+                #print(xmin, ymin)
                 pad_x = max(self.h - self.w, 0) * (self.network_img_size/max(self.h, self.w))
                 pad_y = max(self.w - self.h, 0) * (self.network_img_size/max(self.h, self.w))
                 unpad_h = self.network_img_size-pad_y
@@ -195,11 +197,7 @@ class DetectorManager():
             confidence = output.bounding_boxes[index].probability
             w = int(x_p3 - x_p1)
             h = int(y_p3 - y_p1)
-            #if w > h:
-                #cv2.rectangle(imgOut, (int(x_p1)-20, int(y_p1)-20), (int(x_p3), int(y_p3)), (color[0],color[1],color[2]),2)
-
-
-            print(w, h)
+            print(label, confidence)
 
             # Find class color
             if label in self.classes_colors.keys():
@@ -215,13 +213,13 @@ class DetectorManager():
 
             # Create rectangle
             cv2.rectangle(imgOut, (int(x_p1), int(y_p1)), (int(x_p3), int(y_p3)), (color[0],color[1],color[2]),2)
-            #print(color)
             text = ('{:s}: {:.3f}').format(label,confidence)
             cv2.putText(imgOut, text, (int(x_p1), int(y_p1-10)), font, fontScale, (0,0,0), thickness ,cv2.LINE_AA)
 
             # Create center
             center = (int(((x_p1)+(x_p3))/2),int(((y_p1)+(y_p3))/2))
             cv2.circle(imgOut,(center), 1, color, 3)
+
         # Publish visualization image
         image_msg = self.bridge.cv2_to_imgmsg(imgOut, "rgb8")
         self.pub_viz_.publish(image_msg)
