@@ -7,6 +7,9 @@
 #include <pcl/ModelCoefficients.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/project_inliers.h>
+#include <pcl/range_image/range_image_planar.h>
+#include <pcl/range_image/range_image.h>
+#include <pcl/visualization/range_image_visualizer.h>
 #include <pcl/visualization/pcl_visualizer.h>
  #include <pcl/visualization/cloud_viewer.h>
 #include<iostream> 
@@ -70,16 +73,26 @@ using namespace std;
 //     return 0;
 //   }
 
+void 
+setViewerPose (pcl::visualization::PCLVisualizer& viewer, const Eigen::Affine3f& viewer_pose)
+{
+  Eigen::Vector3f pos_vector = viewer_pose * Eigen::Vector3f(0, 0, 0);
+  Eigen::Vector3f look_at_vector = viewer_pose.rotation () * Eigen::Vector3f(0, 0, 1) + pos_vector;
+  Eigen::Vector3f up_vector = viewer_pose.rotation () * Eigen::Vector3f(0, -1, 0);
+  viewer.setCameraPosition (pos_vector[0], pos_vector[1], pos_vector[2],
+                            look_at_vector[0], look_at_vector[1], look_at_vector[2],
+                            up_vector[0], up_vector[1], up_vector[2]);
+}
 
-// pcl::PointCloud<pcl::PointXYZ>::Ptr bodyFiltered;
 
 
 sensor_msgs::PointCloud2 pub_cloud;
-
+sensor_msgs::Image image_;
 // pcl::PointCloud<pcl::PointXYZ>::Ptr pub_msg;
 
 
-//   pcl::visualization::PCLVisualizer viewer("Cloud Viewer");
+//  pcl::visualization::CloudViewer viewer("PCL Viewer");
+//  pcl::visualization::PCLVisualizer viewer3D ("3D Viewer");
   
   void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& msg)
   {
@@ -107,16 +120,60 @@ sensor_msgs::PointCloud2 pub_cloud;
     boxFilter.setMax(Eigen::Vector4f(maxX, maxY, maxZ, 1.0));
     boxFilter.setInputCloud(cloud);
     boxFilter.filter(*bodyFiltered);
-
-
-    // pcl::toROSMsg(*bodyFiltered,pub_cloud);
-
-    // for (std::size_t i = 0; i < bodyFiltered->points.size (); ++i)
+    //     for (std::size_t i = 0; i < bodyFiltered->points.size (); ++i)
     // {
     //     cout << "x:"<<bodyFiltered->points[i].x << endl;
-    //     // cout << "y:"<x<bodyFiltered->points[i].y << endl;
-    //     // cout <<"z:"<< bodyFiltered->points[i].z << endl;
+    //     cout << "y:"<<bodyFiltered->points[i].y << endl;
+    //     cout <<"z:"<< bodyFiltered->points[i].z << endl;
     // }
+    // viewer.showCloud (bodyFiltered);
+
+    // int image_size_x = 640, image_size_y = 480;
+    // float center_x = (640.0f / 2.0f), center_y = (480.0f / 2.0f);
+    // float focal_length_x = 525.0f, focal_length_y = focal_length_x;
+    // Eigen::Affine3f sensor_pose = Eigen::Affine3f(Eigen::Translation3f(bodyFiltered->sensor_origin_[0],
+    //             bodyFiltered->sensor_origin_[1],
+    //             bodyFiltered->sensor_origin_[2])) *
+    //             Eigen::Affine3f(bodyFiltered->sensor_orientation_);
+    // float noise_level = 0.0f, minimum_range = 0.0f;
+
+    // pcl::RangeImagePlanar::Ptr range_image_ptr(new pcl::RangeImagePlanar);
+    // pcl::RangeImagePlanar& range_image = *range_image_ptr; 
+
+    // // pcl::RangeImagePlanar range_image;
+    // range_image.createFromPointCloudWithFixedSize(*bodyFiltered, image_size_x, image_size_y,
+    //     center_x, center_y, focal_length_x, focal_length_x,
+    //     sensor_pose, pcl::RangeImage::CAMERA_FRAME,
+    //     noise_level, minimum_range);
+
+
+    // We now want to create a range image from the above point cloud, with a 1deg angular resolution
+    // float angularResolution = (float) (  1.0f * (M_PI/180.0f));  //   1.0 degree in radians
+    // float maxAngleWidth     = (float) (360.0f * (M_PI/180.0f));  // 360.0 degree in radians
+    // float maxAngleHeight    = (float) (180.0f * (M_PI/180.0f));  // 180.0 degree in radians
+    // Eigen::Affine3f sensorPose = (Eigen::Affine3f)Eigen::Translation3f(0.0f, 0.0f, 0.0f);
+    // pcl::RangeImage::CoordinateFrame coordinate_frame = pcl::RangeImage::CAMERA_FRAME;
+    // float noiseLevel=0.00;
+    // float minRange = 0.0f;
+    // int borderSize = 1;
+
+    // pcl::RangeImage::Ptr range_image_ptr(new pcl::RangeImage);
+    // pcl::RangeImage& rangeImage = *range_image_ptr; 
+    
+    // // pcl::RangeImage rangeImage;
+    // rangeImage.createFromPointCloud(*bodyFiltered, angularResolution, maxAngleWidth, maxAngleHeight,
+    //                                 sensorPose, coordinate_frame, noiseLevel, minRange, borderSize);
+
+    // cout<< rangeImage << endl;
+    // for (int i =0;i< rangeImage.points.size();i++){
+    //     cout <<rangeImage.points[i] << endl;
+    // }
+    // viewer3D.setBackgroundColor (1, 1, 1);
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointWithRange> range_image_color_handler (range_image_ptr, 0, 0, 0);
+    // viewer3D.addPointCloud (range_image_ptr, range_image_color_handler, "range image");
+    // viewer3D.setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "range image");
+    // viewer3D.initCameraParameters ();
+    // setViewerPose(viewer3D, rangeImage.getTransformationToWorldSystem ());
 
 
         /*  METHOD #2: Using a Affine3f
@@ -124,26 +181,27 @@ sensor_msgs::PointCloud2 pub_cloud;
     */
     float theta = M_PI/4;
     // Eigen::Affine3f extrinsics = Eigen::Affine3f::Identity();
-    Eigen::Matrix4f projection_matrix = Eigen::Matrix4f::Identity();
+    // Eigen::Matrix4f projection_matrix = Eigen::Matrix4f::Identity();
+    Eigen:: MatrixXf projection_matrix(3,4); 
     // projection_matrix <<384.46966552734375, 0.0, 314.06256103515625, 0.0, 
     //             0.0, 384.46966552734375, 248.62062072753906, 0.0, 
     //             0.0, 0.0, 1.0, 0.0,
     //             0,0,0,1;
 
-    projection_matrix << 612.8899536132812, 0.0, 313.19580078125, 0.0, 
-                        0.0, 613.1091918945312, 248.6840362548828, 0.0, 
-                        0.0, 0.0, 1.0, 0.0, 
-                        0,0,0,1;
+    // projection_matrix << 612.8899536132812, 0.0, 313.19580078125, 0.0, 
+    //                     0.0, 613.1091918945312, 248.6840362548828, 0.0, 
+    //                     0.0, 0.0, 1.0, 0.0;
     
 
     // Eigen::Matrix4f intrinsics = Eigen::Matrix4f::Identity();  
 
-    // intrinsics <<   0.38446966552734375, 0, 0.31406256103515625, 0,
-    //                 0, 0.38446966552734375, 0.24862062072753906,0,
-    //                 0, 0, 1, 0,
-    //                 0,0,0,1;
+    projection_matrix <<   384.46966552734375, 0, 314.06256103515625, 0,
+                    0, 384.46966552734375, 248.62062072753906,0,
+                    0, 0, 1, 0;
 
     // Eigen::Matrix4f camerat_matrix = intrinsics * extrinsics;
+    
+
 
 
 
@@ -160,18 +218,38 @@ sensor_msgs::PointCloud2 pub_cloud;
     // std::cout << extrinsics.matrix() << std::endl;
       // Executing the transformation
     pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-    // You can either apply transform_1 or extrinsics; they are the same
-    pcl::transformPointCloud (*bodyFiltered, *transformed_cloud, projection_matrix);
+    for (std::size_t i = 0; i < bodyFiltered->points.size (); ++i)
+        {
+            if (bodyFiltered->points[i].x > 0.01 && bodyFiltered->points[i].y > 0.01){
+                Eigen::Vector4f three_loc;
+                three_loc <<  bodyFiltered->points[i].y, bodyFiltered->points[i].z,bodyFiltered->points[i].x, 1;
+                Eigen::Vector3f two_loc;
+                two_loc = projection_matrix * three_loc;
+                
+                pcl::PointXYZ point;
+                point.x = two_loc[0]/two_loc[2]/1000;
+                point.y = two_loc[1]/two_loc[2]/1000;
+                point.z = two_loc[2]/1000;
+                // cout << "x:"<<point.x+320 << endl;
+                // cout << "y:"<<point.y +240<< endl;
+                // cout <<"z:"<< point.z << endl;
 
-    for (std::size_t i = 0; i < transformed_cloud->points.size (); ++i)
-    {
-        cout << "x:"<<transformed_cloud->points[i].x << endl;
-        cout << "y:"<<transformed_cloud->points[i].y << endl;
-        cout <<"z:"<< transformed_cloud->points[i].z << endl;
-    }
+                transformed_cloud->points.push_back(point);
+            }
+
+        }
+    // You can either apply transform_1 or extrinsics; they are the same
+    // pcl::transformPointCloud (*bodyFiltered, *transformed_cloud, projection_matrix);
+
+    // for (std::size_t i = 0; i < transformed_cloud->points.size (); ++i)
+    // {
+    //     cout << "x:"<<transformed_cloud->points[i].x << endl;
+    //     cout << "y:"<<transformed_cloud->points[i].y << endl;
+    //     cout <<"z:"<< transformed_cloud->points[i].z << endl;
+    // }
 
     pcl::toROSMsg(*transformed_cloud,pub_cloud);
-
+    // pcl::toROSMsg (*transformed_cloud, image_);
 
   } 
   
@@ -182,9 +260,6 @@ sensor_msgs::PointCloud2 pub_cloud;
     ros::init (argc, argv, "get_depth");
     ros::NodeHandle n;
 
-    // Create a ROS publisher for the output point cloud
-    // ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
-    // ros::Publisher pub = n.advertise<pcl::PointCloud<pcl::PointXYZ>> ("filtered_lidar_output", 1);
     ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
     
     // Create a ROS subscriber for the input point cloud

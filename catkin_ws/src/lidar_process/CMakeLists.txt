@@ -138,7 +138,10 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/lidar_process_node.cpp)
 ## Rename C++ executable without prefix
 add_executable(get_depth_node src/get_depth.cpp)
+
+
 target_link_libraries(get_depth_node ${catkin_LIBRARIES})
+
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
