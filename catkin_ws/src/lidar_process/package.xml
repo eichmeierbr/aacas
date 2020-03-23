@@ -63,6 +63,8 @@
   <exec_depend>sensor_msgs</exec_depend>
   <build_depend>libpcl-all-dev</build_depend>
   <exec_depend>libpcl-all</exec_depend>
+  <exec_depend>yolov3_pytorch_ros</exec_depend>
+  <build_depend>yolov3_pytorch_ros</build_depend>
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
