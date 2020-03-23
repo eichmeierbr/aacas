@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <yolov3_pytorch_ros/BoundingBox.h>
+// #include <yolov3_pytorch_ros/BoundingBox.h>
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -21,7 +21,7 @@ sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
 
 
- pcl::visualization::CloudViewer viewer("PCL Viewer");
+pcl::visualization::CloudViewer viewer("PCL Viewer");
 //  pcl::visualization::PCLVisualizer viewer3D ("3D Viewer");
 
 //   void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes &msg){
