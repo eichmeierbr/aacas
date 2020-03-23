@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <yolov3_pytorch_ros/BoundingBox.h>
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -18,16 +19,24 @@ using namespace std;
 
 sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
-// pcl::PointCloud<pcl::PointXYZ>::Ptr pub_msg;
 
 
  pcl::visualization::CloudViewer viewer("PCL Viewer");
 //  pcl::visualization::PCLVisualizer viewer3D ("3D Viewer");
+
+//   void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes &msg){
+//       cout << "here";
+
+//   } 
+
+
+
+
+
   
   void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& msg)
   {
     // Create a container for the data.
-
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_projected (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
@@ -134,8 +143,8 @@ sensor_msgs::Image image_;
     ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
     
     // Create a ROS subscriber for the input point cloud
-    ros::Subscriber sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
-
+    ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
+    // ros::Subscriber bb_sub = n.subscribe ("/detections_image_topic", 1, bb_cb);
     ros::Rate loop_rate(20);
     while (n.ok())
      {
