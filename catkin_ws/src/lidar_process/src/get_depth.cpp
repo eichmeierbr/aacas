@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <yolov3_pytorch_ros/BoundingBox.h>
+#include <yolov3_pytorch_ros/BoundingBoxes.h>
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -12,8 +13,9 @@
 #include <pcl/range_image/range_image.h>
 #include <pcl/visualization/range_image_visualizer.h>
 #include <pcl/visualization/pcl_visualizer.h>
- #include <pcl/visualization/cloud_viewer.h>
+#include <pcl/visualization/cloud_viewer.h>
 #include<iostream> 
+#include <vector>
 using namespace std;
 
 
@@ -21,13 +23,18 @@ sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
 yolov3_pytorch_ros::BoundingBox bb;
 
-//pcl::visualization::CloudViewer viewer("PCL Viewer");
+pcl::visualization::CloudViewer viewer("PCL Viewer");
 //  pcl::visualization::PCLVisualizer viewer3D ("3D Viewer");
 
-//   void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes &msg){
-//       cout << "here";
-
-//   } 
+  void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes msg){
+      for (int i =0; i<msg.bounding_boxes.size();i++){
+          if (msg.bounding_boxes[i].Class== "person"){
+            bb= msg.bounding_boxes[i];
+          }
+      }
+    //   cout << "here"<<endl;
+    //   cout<< msg.bounding_boxes[0].Class<<endl;
+  } 
 
 
 
@@ -96,8 +103,8 @@ yolov3_pytorch_ros::BoundingBox bb;
                     0, 0, 1;
 
     extrinsics << 1,0,0,0,
-                  0,1,0,0,
-                  0,0,1,0.0045;
+                  0,1,0,0.005588,
+                  0,0,1,0.012573;
 
 
 
@@ -118,15 +125,36 @@ yolov3_pytorch_ros::BoundingBox bb;
                 point.x = two_loc[0]/two_loc[2];
                 point.y = two_loc[1]/two_loc[2];
                 point.z = two_loc[2];
-                cout << "x:"<<point.x << endl;
-                cout << "y:"<<point.y<< endl;
-                cout <<"z:"<< point.z << endl;
+                // cout << "x:"<<point.x << endl;
+                // cout << "y:"<<point.y<< endl;
+                // cout <<"z:"<< point.z << endl;
 
                 transformed_cloud->points.push_back(point);
             }
 
         }
-        // viewer.showCloud(transformed_cloud );
+    float total = 0;
+    int count = 0;
+    float avg = 0;
+    for (std::size_t i = 0; i < transformed_cloud->points.size (); ++i){
+        float x = transformed_cloud->points[i].x;
+        float y = transformed_cloud->points[i].y;
+        float z = transformed_cloud->points[i].z;
+
+        if (x>bb.xmin && x<bb.xmax && y>bb.ymin && y<bb.ymax){
+            total=total+z;
+            count++;
+        }
+    }
+    // cout<<"total" << total << endl;
+    // cout << "count" << count << endl;
+    if (count != 0){
+        avg = total/count;
+        cout << "Average" << avg << endl;
+    }
+    // avg = total/count;
+    // cout<< avg<< endl;
+    viewer.showCloud(transformed_cloud );
 
 
     pcl::toROSMsg(*transformed_cloud,pub_cloud);
@@ -144,7 +172,7 @@ yolov3_pytorch_ros::BoundingBox bb;
     
     // Create a ROS subscriber for the input point cloud
     ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
-    // ros::Subscriber bb_sub = n.subscribe ("/detections_image_topic", 1, bb_cb);
+    ros::Subscriber bb_sub = n.subscribe ("/detected_objects_in_image", 1, bb_cb);
     ros::Rate loop_rate(20);
     while (n.ok())
      {
