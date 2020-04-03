@@ -91,16 +91,20 @@ pcl::visualization::CloudViewer viewer("PCL Viewer");
    
         }
 
-    // viewer.showCloud(bodyFiltered);
+    viewer.showCloud(bodyFiltered);
 
     Eigen:: MatrixXf intrinsics(3,3); 
     Eigen:: MatrixXf extrinsics(3,4); 
     Eigen:: MatrixXf camera_matrix(3,4); 
   
 
-    intrinsics <<   384.46966552734375, 0, 314.06256103515625,
-                    0, 384.46966552734375, 248.62062072753906,
-                    0, 0, 1;
+    // intrinsics <<   384.46966552734375, 0, 314.06256103515625,
+    //                 0, 384.46966552734375, 248.62062072753906,
+    //                 0, 0, 1;
+
+    intrinsics << 612.8899536132812, 0.0, 313.19580078125,
+                 0.0, 613.1091918945312, 248.6840362548828, 
+                 0.0, 0.0, 1.0;
 
     extrinsics << 1,0,0,0,
                   0,1,0,0.005588,
@@ -143,6 +147,7 @@ pcl::visualization::CloudViewer viewer("PCL Viewer");
 
         if (x>bb.xmin && x<bb.xmax && y>bb.ymin && y<bb.ymax){
             total=total+z;
+            cout << z << endl;
             count++;
         }
     }
@@ -150,11 +155,11 @@ pcl::visualization::CloudViewer viewer("PCL Viewer");
     // cout << "count" << count << endl;
     if (count != 0){
         avg = total/count;
-        cout << "Average" << avg << endl;
+        // cout << "Average" << avg << endl;
     }
     // avg = total/count;
     // cout<< avg<< endl;
-    viewer.showCloud(transformed_cloud );
+    // viewer.showCloud(transformed_cloud );
 
 
     pcl::toROSMsg(*transformed_cloud,pub_cloud);
