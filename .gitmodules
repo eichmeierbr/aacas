@@ -1,3 +1,21 @@
 [submodule "SDK/librealsense"]
 	path = SDK/librealsense
 	url = https://github.com/IntelRealSense/librealsense.git
+[submodule "catkin_ws/src/aacas_simulation/Hector-Quadrotor-Aggressive-Flight"]
+	path = catkin_ws/src/aacas_simulation/Hector-Quadrotor-Aggressive-Flight
+	url = https://github.com/tahsinkose/Hector-Quadrotor-Aggressive-Flight
+[submodule "catkin_ws/src/aacas_simulation/dji_m100_description"]
+	path = catkin_ws/src/aacas_simulation/dji_m100_description
+	url = https://github.com/dji-m100-ros/dji_m100_description
+[submodule "catkin_ws/src/aacas_simulation/dji_m100_gazebo"]
+	path = catkin_ws/src/aacas_simulation/dji_m100_gazebo
+	url = https://github.com/dji-m100-ros/dji_m100_gazebo
+[submodule "catkin_ws/src/aacas_simulation/dji_m100_controllers_gazebo"]
+	path = catkin_ws/src/aacas_simulation/dji_m100_controllers_gazebo
+	url = https://github.com/dji-m100-ros/dji_m100_controllers_gazebo
+[submodule "catkin_ws/src/aacas_simulation/hector_localization"]
+	path = catkin_ws/src/aacas_simulation/hector_localization
+	url = https://github.com/tu-darmstadt-ros-pkg/hector_localization
+[submodule "catkin_ws/src/aacas_simulation/hector_quadrotor"]
+	path = catkin_ws/src/aacas_simulation/hector_quadrotor
+	url = https://github.com/tu-darmstadt-ros-pkg/hector_quadrotor
