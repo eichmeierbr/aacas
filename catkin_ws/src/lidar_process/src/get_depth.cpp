@@ -9,19 +9,32 @@
 #include <pcl/ModelCoefficients.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/filters/project_inliers.h>
-#include <pcl/range_image/range_image_planar.h>
-#include <pcl/range_image/range_image.h>
-#include <pcl/visualization/range_image_visualizer.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/visualization/cloud_viewer.h>
+
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+
 #include<iostream> 
 #include <vector>
+#include <typeinfo> 
 using namespace std;
 
 
 sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
 yolov3_pytorch_ros::BoundingBox bb;
+
+float tx;
+float ty;
+float tz;
+
 
 pcl::visualization::CloudViewer viewer("PCL Viewer");
 
@@ -31,9 +44,11 @@ class pc_process{
     // Input Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
     // Cropped Cloud
-    pcl::PointCloud<pcl::PointXYZ>::Ptr bodyFiltered;
-    //Projected Cloud
-    pcl::PointCloud<pcl::PointXYZ>::Ptr projected_cloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud;
+    //Projected Cloud in the bounding box
+    pcl::PointCloud<pcl::PointXYZ>::Ptr proj_cloud_in_bb;
+    // 3D point of the corresponding points in bb 
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_bb;
     
     
     
@@ -45,68 +60,178 @@ class pc_process{
     public:    
     pc_process():intrinsics(3,3),extrinsics(3,4),camera_matrix(3,4), 
     cloud(new pcl::PointCloud<pcl::PointXYZ>), 
-    bodyFiltered(new pcl::PointCloud<pcl::PointXYZ>),
-    projected_cloud(new pcl::PointCloud<pcl::PointXYZ>)
+    cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>),
+    proj_cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>),
+    cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>)
 
     {   
-        intrinsics << 612.8899536132812, 0.0, 313.19580078125,
-                    0.0, 613.1091918945312, 248.6840362548828, 
+        // intrinsics << 612.8899536132812, 0.0, 313.19580078125,
+        //             0.0, 613.1091918945312, 248.6840362548828, 
+        //             0.0, 0.0, 1.0;
+                
+        
+        // calibrated from matlab
+        intrinsics << 574.0198, 0.0, 318.1983,
+                    0.0, 575.2453, 246.5657, 
                     0.0, 0.0, 1.0;
 
-        extrinsics << 1,0,0,0,
-                    0,1,0,0.005588,
-                    0,0,1,0.012573;
+
+        extrinsics << 1,0,0,tx,
+                      0,1,0,ty,
+                      0,0,1,tz;
+
 
         camera_matrix = intrinsics * extrinsics;
         
     }
 
-
     void crop_cloud(const sensor_msgs::PointCloud2ConstPtr& msg){
         convert_to_pcl(msg);
-        bodyFiltered->is_dense = true;
+        cropped_cloud->is_dense = true;
         for (std::size_t i = 0; i < cloud->points.size(); ++i)
             {   
                 //Flipping the lidar coordinates to adjust for the upside down velodyne installation
                 float x = cloud->points[i].x;
-                float y = -cloud->points[i].y;
+                float y = cloud->points[i].y;
                 float z = -cloud->points[i].z;
                 if ((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)){    
                     pcl::PointXYZ point;
                     point.x = x;
                     point.y = y;
                     point.z = z;
-                    bodyFiltered->points.push_back(point);
+                    cropped_cloud->points.push_back(point);
                 }
-    
             }
+            // viewer.showCloud(cropped_cloud);
         }
 
-    void project_cloud(){
+    void get_points_in_bb(){
 
-        //Project 3D pointcloud to 2D
-        projected_cloud->is_dense = true;
-        for (std::size_t i = 0; i < bodyFiltered->points.size (); ++i)
+        proj_cloud_in_bb->is_dense = true;
+        cloud_in_bb-> is_dense = true; 
+        
+        for (std::size_t i = 0; i < cropped_cloud->points.size (); ++i)
             {
-                if (bodyFiltered->points[i].x > 0.01 && bodyFiltered->points[i].y > 0.01){
+                // filter out the noise close to the lidar
+                if (cropped_cloud->points[i].x > 0.01 && cropped_cloud->points[i].y > 0.01){
+                    
+                    // Project 3D points to 2D
                     Eigen::Vector4f three_loc;
-                    three_loc <<  bodyFiltered->points[i].y, bodyFiltered->points[i].z,bodyFiltered->points[i].x, 1;
+                    three_loc <<  cropped_cloud->points[i].y, cropped_cloud->points[i].z,cropped_cloud->points[i].x, 1;
+                    //  three_loc <<  cropped_cloud->points[i].y, cropped_cloud->points[i].z,cropped_cloud->points[i].x, 1;
                     Eigen::Vector3f two_loc;
                     two_loc = camera_matrix * three_loc;
                     
-                    pcl::PointXYZ point;
-                    point.x = two_loc[0]/two_loc[2];
-                    point.y = two_loc[1]/two_loc[2];
-                    point.z = two_loc[2];
-                    // cout << "x:"<<point.x << endl;
-                    // cout << "y:"<<point.y<< endl;
-                    // cout <<"z:"<< point.z << endl;
-                    projected_cloud->points.push_back(point);
+                     // Normalize. (These points are in camera coord)
+                    float x = two_loc[0]/two_loc[2];
+                    float y = two_loc[1]/two_loc[2];
+                    float z = two_loc[2];
+
+
+                    //Select ones that are in the bounding box. 
+                    if (x>bb.xmin && x<bb.xmax && y>bb.ymin && y<bb.ymax){
+                        
+                        //(These points are in camera coord)
+                        pcl::PointXYZ point;
+                        point.x = x;
+                        point.y = y;
+                        point.z = z;
+                        proj_cloud_in_bb->points.push_back(point);
+
+                        //Corresponding 3D points (These points are in lidar coord)
+                        pcl::PointXYZ threeDpoint;
+                        threeDpoint.x = cropped_cloud->points[i].x; 
+                        threeDpoint.y = cropped_cloud->points[i].y; 
+                        threeDpoint.z = cropped_cloud->points[i].z; 
+                        cloud_in_bb->points.push_back(threeDpoint);
+
+                    }
                 }
             }
-        viewer.showCloud(projected_cloud );
+        // viewer.showCloud(cloud_in_bb);
+        }
+    
+    
+    void cluster(){
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
+        // Create the segmentation object for the planar model and set all the parameters
+        pcl::SACSegmentation<pcl::PointXYZ> seg;
+        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
+        pcl::PCDWriter writer;
+        seg.setOptimizeCoefficients (true);
+        seg.setModelType (pcl::SACMODEL_PLANE);
+        seg.setMethodType (pcl::SAC_RANSAC);
+        seg.setMaxIterations (100);
+        seg.setDistanceThreshold (0.02);
+
+
+        // int i=0, nr_points = (int) cloud_in_bb->points.size ();
+        // while (cloud_in_bb->points.size () > 0.3 * nr_points)
+        // {
+        //     // Segment the largest planar component from the remaining cloud
+        //     seg.setInputCloud (cloud_in_bb);
+        //     seg.segment (*inliers, *coefficients);
+        //     if (inliers->indices.size () == 0)
+        //     {
+        //     // std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
+        //     break;
+        //     }
+
+        //     // Extract the planar inliers from the input cloud
+        //     pcl::ExtractIndices<pcl::PointXYZ> extract;
+        //     extract.setInputCloud (cloud_in_bb);
+        //     extract.setIndices (inliers);
+        //     extract.setNegative (false);
+
+        //     // Get the points associated with the planar surface
+        //     extract.filter (*cloud_plane);
+        //     // std::cout << "PointCloud representing the planar component: " << cloud_plane->points.size () << " data points." << std::endl;
+
+        //     // Remove the planar inliers, extract the rest
+        //     extract.setNegative (true);
+        //     extract.filter (*cloud_f);
+        //     *cloud_in_bb = *cloud_f;
+
+        // }
+        // cout << cloud_in_bb->points.size() << endl;
+        // Creating the KdTree object for the search method of the extraction
+        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+        tree->setInputCloud (cloud_in_bb);
+
+        std::vector<pcl::PointIndices> cluster_indices;
+        pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+        ec.setClusterTolerance (0.2); // 2cm
+        ec.setMinClusterSize (50);
+        ec.setMaxClusterSize (25000);
+        ec.setSearchMethod (tree);
+        ec.setInputCloud(cloud_in_bb);
+        ec.extract (cluster_indices);
+
+
+        int j = 0;
+
+        // cout << typeid(cluster_indices).name() << endl;
+        // cout <<cluster_indices[0].size() << endl;
+        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+        {
+            // cout << "Here" << endl;
+            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+            cout << it->indices.size() << endl;
+            for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
+            {
+                cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
+            }
+            // cout << cloud_cluster->points.size() << endl;
+            viewer.showCloud(cloud_cluster);
 
         }
+
+    }
+
+
 
     private:
     void convert_to_pcl(const sensor_msgs::PointCloud2ConstPtr& msg){
@@ -114,8 +239,6 @@ class pc_process{
     }
 
 };
-
-
 
 
 
@@ -131,123 +254,13 @@ void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes msg){
 void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     pc_process pc_processer; 
     pc_processer.crop_cloud(msg);
-    pc_processer.project_cloud();
+    pc_processer.get_points_in_bb();
+    pc_processer.cluster();
 }
 
 
+//     pcl::toROSMsg(   proj_cloud_in_bb,pub_cloud);
 
-  
-//   void cloud_cb (const sensor_msgs::PointCloud2ConstPtr& msg)
-//   {
-//     // Create a container for the data.
-//     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
-//     pcl::PointCloud<pcl::PointXYZ>::Ptr bodyFiltered (new pcl::PointCloud<pcl::PointXYZ>);  
-//     // pcl::PointCloud<pcl::PointXYZ> cloud;
-//     pcl::fromROSMsg (*msg, *cloud);
-
-
-//     // for(pcl::PointCloud<pcl::PointXYZ>::iterator it = *cloud.begin();it != *cloud.end();it ++) {
-//     //     cout << "x: " << it-> x << endl; 
-//     //     cout << "y: " <<it -> y << endl;
-//     //     cout << "z: " <<it-> z << endl;  
-//     // }
-//     // Define min and max for X, Y and Z
-//     float minX = 0, minY = -1.2, minZ = -2.5;
-//     float maxX = +5, maxY = +1.2, maxZ = +2.5;
-
-
-//     // Corp the pointcloud to a 70 degree FOV
-//     bodyFiltered->is_dense = true;
-//     for (std::size_t i = 0; i < cloud->points.size(); ++i)
-//         {   
-//             //Flipping the lidar coordinates to adjust for the upside down velodyne installation
-//             float x = cloud->points[i].x;
-//             float y = -cloud->points[i].y;
-//             float z = -cloud->points[i].z;
-//             if ((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)){    
-//                 pcl::PointXYZ point;
-//                 point.x = x;
-//                 point.y = y;
-//                 point.z = z;
-//                 bodyFiltered->points.push_back(point);
-//             }
-   
-//         }
-
-//     // viewer.showCloud(bodyFiltered);
-
-//     Eigen:: MatrixXf intrinsics(3,3); 
-//     Eigen:: MatrixXf extrinsics(3,4); 
-//     Eigen:: MatrixXf camera_matrix(3,4); 
-  
-
-//     // intrinsics <<   384.46966552734375, 0, 314.06256103515625,
-//     //                 0, 384.46966552734375, 248.62062072753906,
-//     //                 0, 0, 1;
-
-//     intrinsics << 612.8899536132812, 0.0, 313.19580078125,
-//                  0.0, 613.1091918945312, 248.6840362548828, 
-//                  0.0, 0.0, 1.0;
-
-//     extrinsics << 1,0,0,0,
-//                   0,1,0,0.005588,
-//                   0,0,1,0.012573;
-
-
-
-//     camera_matrix = intrinsics * extrinsics;
-
-//     //Project 3D pointcloud to 2D
-//     pcl::PointCloud<pcl::PointXYZ>::Ptr  projected_cloud (new pcl::PointCloud<pcl::PointXYZ> ());
-//      projected_cloud->is_dense = true;
-//     for (std::size_t i = 0; i < bodyFiltered->points.size (); ++i)
-//         {
-//             if (bodyFiltered->points[i].x > 0.01 && bodyFiltered->points[i].y > 0.01){
-//                 Eigen::Vector4f three_loc;
-//                 three_loc <<  bodyFiltered->points[i].y, bodyFiltered->points[i].z,bodyFiltered->points[i].x, 1;
-//                 Eigen::Vector3f two_loc;
-//                 two_loc = camera_matrix * three_loc;
-                
-//                 pcl::PointXYZ point;
-//                 point.x = two_loc[0]/two_loc[2];
-//                 point.y = two_loc[1]/two_loc[2];
-//                 point.z = two_loc[2];
-//                 // cout << "x:"<<point.x << endl;
-//                 // cout << "y:"<<point.y<< endl;
-//                 // cout <<"z:"<< point.z << endl;
-
-//                  projected_cloud->points.push_back(point);
-//             }
-
-//         }
-//     float total = 0;
-//     int count = 0;
-//     float avg = 0;
-//     for (std::size_t i = 0; i <  projected_cloud->points.size (); ++i){
-//         float x =    projected_cloud->points[i].x;
-//         float y =    projected_cloud->points[i].y;
-//         float z =    projected_cloud->points[i].z;
-
-//         if (x>bb.xmin && x<bb.xmax && y>bb.ymin && y<bb.ymax){
-//             total=total+z;
-//             cout << z << endl;
-//             count++;
-//         }
-//     }
-//     // cout<<"total" << total << endl;
-//     // cout << "count" << count << endl;
-//     if (count != 0){
-//         avg = total/count;
-//         // cout << "Average" << avg << endl;
-//     }
-//     // avg = total/count;
-//     // cout<< avg<< endl;
-//     viewer.showCloud projected_cloud );
-
-
-//     pcl::toROSMsg(   projected_cloud,pub_cloud);
-
-//   } 
   
   
   int main (int argc, char** argv)
@@ -257,6 +270,11 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     ros::NodeHandle n;
 
     ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
+
+    n.getParam("tx", tx);
+    n.getParam("ty", ty);
+    n.getParam("tz", tz);
+
     
     // Create a ROS subscriber for the input point cloud
     ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);

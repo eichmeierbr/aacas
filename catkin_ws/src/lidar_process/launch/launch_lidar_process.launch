@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+
+  <param name="tx" type="double" value="-0.0032512" />
+  <param name="ty" type="double" value="-0.05588" />
+  <param name="tz" type="double" value="-0.12573" />
+
+  <node name="get_depth_node" pkg="lidar_process" type="get_depth_node"  output ="screen">
+  </node>
+
+</launch>
