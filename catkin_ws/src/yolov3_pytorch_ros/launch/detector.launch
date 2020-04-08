@@ -2,9 +2,9 @@
 <launch>
     <!-- Camera topic and weights, config and classes files -->
     <arg name="image_topic"	                default="/camera/color/image_raw"/>
-    <arg name="weights_name"	            default="yolov3.weights"/>
-    <arg name="config_name"	                default="yolov3.cfg"/>
-    <arg name="classes_name"	            default="coco.names"/>
+    <arg name="weights_name"	            default="yolov3_ckpt_100.pth"/>
+    <arg name="config_name"	                default="yolov3-custom.cfg"/>
+    <arg name="classes_name"	            default="custom.names"/>
 
     <!-- Published topics -->
     <arg name="publish_image"	            default="true"/>

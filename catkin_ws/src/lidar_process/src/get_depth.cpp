@@ -36,7 +36,7 @@ float ty;
 float tz;
 
 
-pcl::visualization::CloudViewer viewer("PCL Viewer");
+//pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 
 
@@ -243,7 +243,7 @@ class pc_process{
         //         cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
         //     }
         //     // cout << cloud_cluster->points.size() << endl;
-            viewer.showCloud(cloud_cluster);
+            //viewer.showCloud(cloud_cluster);
 
         // }
 

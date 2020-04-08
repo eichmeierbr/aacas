@@ -44,8 +44,8 @@ class DetectorManager():
 
         # Load image parameter and confidence threshold
         self.image_topic = rospy.get_param('~image_topic', '/camera/rgb/image_raw')
-        self.confidence_th = rospy.get_param('~confidence', 0.7)
-        self.nms_th = rospy.get_param('~nms_th', 0.3)
+        self.confidence_th = rospy.get_param('~confidence', 0.95)
+        self.nms_th = rospy.get_param('~nms_th', 0.1)
 
         # Load publisher topics
         self.detected_objects_topic = rospy.get_param('~detected_objects_topic')
@@ -66,7 +66,17 @@ class DetectorManager():
 
         # Load net
         self.model = Darknet(self.config_path, img_size=self.network_img_size)
-        self.model.load_weights(self.weights_path)
+
+        if self.weights_path.endswith(".weights"):
+        # Load darknet weights
+            self.model.load_weights(self.weights_path)
+        else:
+        # Load checkpoint weights
+            self.model.load_state_dict(torch.load(self.weights_path))
+
+
+        # self.model.load_weights(self.weights_path)
+        # self.model.load_state_dict(torch.load(self.weights_path))
         if torch.cuda.is_available():
             self.model.cuda()
         else:

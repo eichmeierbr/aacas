@@ -311,11 +311,13 @@ class Darknet(nn.Module):
                     ptr += num_b
                 else:
                     # Load conv. bias
+                    print("copied conv bias")
                     num_b = conv_layer.bias.numel()
                     conv_b = torch.from_numpy(weights[ptr : ptr + num_b]).view_as(conv_layer.bias)
                     conv_layer.bias.data.copy_(conv_b)
                     ptr += num_b
                 # Load conv. weights
+                print("copied conv weights")
                 num_w = conv_layer.weight.numel()
                 conv_w = torch.from_numpy(weights[ptr : ptr + num_w]).view_as(conv_layer.weight)
                 conv_layer.weight.data.copy_(conv_w)
