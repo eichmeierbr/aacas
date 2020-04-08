@@ -103,6 +103,7 @@ class pc_process{
                 }
             }
             // viewer.showCloud(cropped_cloud);
+            pcl::toROSMsg(*cropped_cloud,pub_cloud);
         }
 
     void get_points_in_bb(){
@@ -215,19 +216,36 @@ class pc_process{
 
         // cout << typeid(cluster_indices).name() << endl;
         // cout <<cluster_indices[0].size() << endl;
-        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
-        {
-            // cout << "Here" << endl;
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
-            cout << it->indices.size() << endl;
-            for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
+        int max_size = 0;
+        int max_index = 0;
+        for (int i =0; i< cluster_indices.size();i++){
+            if (cluster_indices[i].indices.size() > max_size){
+                max_size = cluster_indices[i].indices.size();
+                max_index = i;
+            }
+        }
+        cout << max_size<< endl;
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+        for (std::vector<int>::const_iterator pit =  cluster_indices[max_index].indices.begin (); pit != cluster_indices[max_index].indices.end (); ++pit)
             {
                 cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
             }
-            // cout << cloud_cluster->points.size() << endl;
+        
+
+        // for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+        // {
+        //     // cout << "Here" << endl;
+        //     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+        //     // cout << it->indices.size() << endl;
+        //     for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
+        //     {
+        //         cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
+        //     }
+        //     // cout << cloud_cluster->points.size() << endl;
             viewer.showCloud(cloud_cluster);
 
-        }
+        // }
 
     }
 
@@ -245,7 +263,7 @@ class pc_process{
 void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes msg){
     for (int i =0; i<msg.bounding_boxes.size();i++){
         if (msg.bounding_boxes[i].Class== "person"){
-        bb= msg.bounding_boxes[i];
+            bb= msg.bounding_boxes[0];
         }
     }
 } 
