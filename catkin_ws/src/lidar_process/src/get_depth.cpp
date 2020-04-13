@@ -1,6 +1,9 @@
 #include <ros/ros.h>
 #include <yolov3_pytorch_ros/BoundingBox.h>
 #include <yolov3_pytorch_ros/BoundingBoxes.h>
+#include <yolov3_sort/BoundingBox.h>
+#include <yolov3_sort/BoundingBoxes.h>
+
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -29,7 +32,7 @@ using namespace std;
 
 sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
-yolov3_pytorch_ros::BoundingBox bb;
+yolov3_sort::BoundingBox bb;
 
 float tx;
 float ty;
@@ -65,10 +68,6 @@ class pc_process{
     cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>)
 
     {   
-        // intrinsics << 612.8899536132812, 0.0, 313.19580078125,
-        //             0.0, 613.1091918945312, 248.6840362548828, 
-        //             0.0, 0.0, 1.0;
-                
         
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
@@ -199,13 +198,14 @@ class pc_process{
         // }
         // cout << cloud_in_bb->points.size() << endl;
         // Creating the KdTree object for the search method of the extraction
+        cout << cloud_in_bb->points.size()<<endl;
         pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         tree->setInputCloud (cloud_in_bb);
 
         std::vector<pcl::PointIndices> cluster_indices;
         pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
         ec.setClusterTolerance (0.2); // 2cm
-        ec.setMinClusterSize (50);
+        ec.setMinClusterSize (10);
         ec.setMaxClusterSize (25000);
         ec.setSearchMethod (tree);
         ec.setInputCloud(cloud_in_bb);
@@ -258,9 +258,9 @@ class pc_process{
 
 
 
-void bb_cb(const yolov3_pytorch_ros:: BoundingBoxes msg){
+void bb_cb(const yolov3_sort:: BoundingBoxes msg){
     for (int i =0; i<msg.bounding_boxes.size();i++){
-        if (msg.bounding_boxes[i].Class== "person"){
+        if (msg.bounding_boxes[i].label== 0){
             bb= msg.bounding_boxes[0];
         }
     }
@@ -278,7 +278,6 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
 //     pcl::toROSMsg(   proj_cloud_in_bb,pub_cloud);
 
   
-  
   int main (int argc, char** argv)
   {
     // Initialize ROS
@@ -294,7 +293,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     
     // Create a ROS subscriber for the input point cloud
     ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
-    ros::Subscriber bb_sub = n.subscribe ("/detected_objects_in_image", 1, bb_cb);
+    ros::Subscriber bb_sub = n.subscribe ("/tracked_objects", 1, bb_cb);
     ros::Rate loop_rate(20);
     while (n.ok())
      {
