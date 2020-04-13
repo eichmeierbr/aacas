@@ -27,21 +27,35 @@
 #include<iostream> 
 #include <vector>
 #include <typeinfo> 
+#include <unordered_map>
 using namespace std;
 
 
 sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
 yolov3_sort::BoundingBox bb;
+sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
 
 float tx;
 float ty;
 float tz;
 
 
+
 pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 
+// Stores the estimated centoird location of the tracked object
+struct instance_info{
+    float x;
+    float y;
+    float z;
+    float avg;
+    float std;
+};
+
+
+unordered_map<int ,instance_info> instance_pos;
 
 class pc_process{
     // Input Cloud
@@ -52,6 +66,8 @@ class pc_process{
     pcl::PointCloud<pcl::PointXYZ>::Ptr proj_cloud_in_bb;
     // 3D point of the corresponding points in bb 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_bb;
+    // 3D point of the clustered cloud in bb
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster;
     
     
     
@@ -65,8 +81,8 @@ class pc_process{
     cloud(new pcl::PointCloud<pcl::PointXYZ>), 
     cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>),
     proj_cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>),
-    cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>)
-
+    cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>),
+    cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>)
     {   
         
         // calibrated from matlab
@@ -105,11 +121,15 @@ class pc_process{
             pcl::toROSMsg(*cropped_cloud,pub_cloud);
         }
 
-    void get_points_in_bb(){
+    void get_points_in_bb(yolov3_sort::BoundingBox bb){
 
         proj_cloud_in_bb->is_dense = true;
-        cloud_in_bb-> is_dense = true; 
-        
+        cloud_in_bb-> is_dense = true;
+
+        cout << "label"<<bb.label<<endl; 
+        cout << "indx"<<bb.idx<<endl;
+        cout << "xmin"<<bb.xmin<<endl;
+        cout << "xmax" << bb.xmax<<endl;
         for (std::size_t i = 0; i < cropped_cloud->points.size (); ++i)
             {
                 // filter out the noise close to the lidar
@@ -198,7 +218,7 @@ class pc_process{
         // }
         // cout << cloud_in_bb->points.size() << endl;
         // Creating the KdTree object for the search method of the extraction
-        cout << cloud_in_bb->points.size()<<endl;
+        // cout << cloud_in_bb->points.size()<<endl;
         pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         tree->setInputCloud (cloud_in_bb);
 
@@ -222,31 +242,40 @@ class pc_process{
                 max_index = i;
             }
         }
-        cout << max_size<< endl;
+        // cout << max_size<< endl;
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+        // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
         for (std::vector<int>::const_iterator pit =  cluster_indices[max_index].indices.begin (); pit != cluster_indices[max_index].indices.end (); ++pit)
             {
                 cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
             }
         
-
-        // for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
-        // {
-        //     // cout << "Here" << endl;
-        //     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
-        //     // cout << it->indices.size() << endl;
-        //     for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
-        //     {
-        //         cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
-        //     }
-        //     // cout << cloud_cluster->points.size() << endl;
             viewer.showCloud(cloud_cluster);
 
         // }
 
     }
+    
+    instance_info* get_pos(){
+        instance_info* inst_info_ptr = new instance_info();
+        float x_avg = 0;
+        float y_avg = 0;
+        float z_avg = 0; 
+        int count;
 
+        for (std::size_t i = 0; i < cloud_cluster->points.size(); ++i)
+        {   
+            count = i+1; 
+            x_avg = x_avg*(count-1)/count +cloud_cluster->points[i].x/count;
+            y_avg = y_avg*(count-1)/count +cloud_cluster->points[i].y/count;
+            z_avg = z_avg*(count-1)/count +cloud_cluster->points[i].z/count;
+        }
+
+        inst_info_ptr->x = x_avg;
+        inst_info_ptr->y = y_avg;
+        inst_info_ptr->z = z_avg; 
+        return inst_info_ptr;
+    }
 
 
     private:
@@ -259,19 +288,49 @@ class pc_process{
 
 
 void bb_cb(const yolov3_sort:: BoundingBoxes msg){
+    pc_process pc_processer; 
+    pc_processer.crop_cloud(point_cloud_msg);
+    //loop through all bounding boxes
     for (int i =0; i<msg.bounding_boxes.size();i++){
-        if (msg.bounding_boxes[i].label== 0){
-            bb= msg.bounding_boxes[0];
+        // instance ID of the object
+        yolov3_sort::BoundingBox bb =  msg.bounding_boxes[i];
+        int obj_indx = bb.idx;
+        // instance already being tracked, tacklet dead
+        if (instance_pos.count(obj_indx) && bb.xmin==-1 && bb.xmax==-1){
+            cout << "case 1 " << endl;
+            instance_pos.erase(obj_indx);
         }
+
+        // instance already being tracked, tacklet still active
+        else if (instance_pos.count(obj_indx)){
+            cout << "case 2 " << endl;
+            pc_processer.get_points_in_bb(bb);
+            pc_processer.cluster();
+            //get position of the tracket 
+
+            // instance_pos[obj_indx] = pos; 
+        }
+
+        else if (!instance_pos.count(obj_indx)){
+            cout << "case 3" << endl;
+            pc_processer.get_points_in_bb(bb);
+            pc_processer.cluster();
+            //get position of the tracklet
+
+            // instance_pos.insert({obj_indx,pos});
+        }
+
+
     }
 } 
 
 
 void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
-    pc_process pc_processer; 
-    pc_processer.crop_cloud(msg);
-    pc_processer.get_points_in_bb();
-    pc_processer.cluster();
+    point_cloud_msg = msg;
+    // pc_process pc_processer; 
+    // pc_processer.crop_cloud(msg);
+    // pc_processer.get_points_in_bb();
+    // // pc_processer.cluster();
 }
 
 
