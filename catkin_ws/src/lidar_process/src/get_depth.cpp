@@ -46,7 +46,7 @@ pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 
 // Stores the estimated centoird location of the tracked object
-struct instance_info{
+struct instance_pos{
     float x;
     float y;
     float z;
@@ -55,7 +55,7 @@ struct instance_info{
 };
 
 
-unordered_map<int ,instance_info> instance_pos;
+unordered_map<int ,instance_pos*> instance_pos_dict;
 
 class pc_process{
     // Input Cloud
@@ -126,10 +126,10 @@ class pc_process{
         proj_cloud_in_bb->is_dense = true;
         cloud_in_bb-> is_dense = true;
 
-        cout << "label"<<bb.label<<endl; 
-        cout << "indx"<<bb.idx<<endl;
-        cout << "xmin"<<bb.xmin<<endl;
-        cout << "xmax" << bb.xmax<<endl;
+        // cout << "label"<<bb.label<<endl; 
+        // cout << "indx"<<bb.idx<<endl;
+        // cout << "xmin"<<bb.xmin<<endl;
+        // cout << "xmax" << bb.xmax<<endl;
         for (std::size_t i = 0; i < cropped_cloud->points.size (); ++i)
             {
                 // filter out the noise close to the lidar
@@ -256,8 +256,8 @@ class pc_process{
 
     }
     
-    instance_info* get_pos(){
-        instance_info* inst_info_ptr = new instance_info();
+    instance_pos* get_pos(){
+        instance_pos* inst_pos_ptr = new instance_pos();
         float x_avg = 0;
         float y_avg = 0;
         float z_avg = 0; 
@@ -266,15 +266,15 @@ class pc_process{
         for (std::size_t i = 0; i < cloud_cluster->points.size(); ++i)
         {   
             count = i+1; 
-            x_avg = x_avg*(count-1)/count +cloud_cluster->points[i].x/count;
-            y_avg = y_avg*(count-1)/count +cloud_cluster->points[i].y/count;
-            z_avg = z_avg*(count-1)/count +cloud_cluster->points[i].z/count;
+            x_avg = x_avg*(count-1)/count + cloud_cluster->points[i].x/count;
+            y_avg = y_avg*(count-1)/count + cloud_cluster->points[i].y/count;
+            z_avg = z_avg*(count-1)/count + cloud_cluster->points[i].z/count;
         }
 
-        inst_info_ptr->x = x_avg;
-        inst_info_ptr->y = y_avg;
-        inst_info_ptr->z = z_avg; 
-        return inst_info_ptr;
+        inst_pos_ptr->x = x_avg;
+        inst_pos_ptr->y = y_avg;
+        inst_pos_ptr->z = z_avg; 
+        return inst_pos_ptr;
     }
 
 
@@ -296,28 +296,35 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         yolov3_sort::BoundingBox bb =  msg.bounding_boxes[i];
         int obj_indx = bb.idx;
         // instance already being tracked, tacklet dead
-        if (instance_pos.count(obj_indx) && bb.xmin==-1 && bb.xmax==-1){
+        if (instance_pos_dict.count(obj_indx) && bb.xmin==-1 && bb.xmax==-1){
             cout << "case 1 " << endl;
-            instance_pos.erase(obj_indx);
+            instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
+            instance_pos_dict.erase(obj_indx);
+            delete inst_pos_ptr;
         }
 
         // instance already being tracked, tacklet still active
-        else if (instance_pos.count(obj_indx)){
+        else if (instance_pos_dict.count(obj_indx)){
             cout << "case 2 " << endl;
             pc_processer.get_points_in_bb(bb);
             pc_processer.cluster();
             //get position of the tracket 
-
-            // instance_pos[obj_indx] = pos; 
+            instance_pos*inst_pos_ptr = pc_processer.get_pos();
+            cout << "x"<<inst_pos_ptr->x << endl;
+            cout << "y"<<inst_pos_ptr->y << endl;
+            instance_pos_dict[obj_indx] = inst_pos_ptr; 
         }
 
-        else if (!instance_pos.count(obj_indx)){
+        else if (!instance_pos_dict.count(obj_indx)){
             cout << "case 3" << endl;
             pc_processer.get_points_in_bb(bb);
             pc_processer.cluster();
-            //get position of the tracklet
 
-            // instance_pos.insert({obj_indx,pos});
+            //get position of the tracklet
+            instance_pos*inst_pos_ptr = pc_processer.get_pos();
+            cout << inst_pos_ptr->x << endl;
+            //insert the object position and instance id into dictionary 
+            instance_pos_dict.insert({obj_indx,inst_pos_ptr});
         }
 
 
@@ -327,14 +334,9 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
 
 void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     point_cloud_msg = msg;
-    // pc_process pc_processer; 
-    // pc_processer.crop_cloud(msg);
-    // pc_processer.get_points_in_bb();
-    // // pc_processer.cluster();
 }
 
 
-//     pcl::toROSMsg(   proj_cloud_in_bb,pub_cloud);
 
   
   int main (int argc, char** argv)
