@@ -363,7 +363,6 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
        ros::spinOnce ();
        loop_rate.sleep ();
      }
-  
     // Spin
     ros::spin ();
   }
