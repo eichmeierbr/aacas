@@ -1,0 +1,21 @@
+#!/bin/sh
+
+pip install empy
+
+#package installation for realsense sdk
+cd SDK/installRealSenseSDK
+./installLibrealsense.sh 
+./buildLibrealsense.sh
+
+git submodule update --init --recursive
+
+# librealsense build
+mkdir build
+cd build
+cmake ..
+sudo make uninstall && make clean && make -j8 && sudo make install
+cd ../../..
+
+
+#Velodyn Setup
+sudo apt-get install ros-VERSION-velodyne

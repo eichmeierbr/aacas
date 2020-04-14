@@ -1,0 +1,6 @@
+.vscode/
+.catkin_workspace
+catkin_ws/devel/
+catkin_ws/build/
+catkin_ws/src/yolov3_pytorch_ros/models/*.weights
+SDK/
