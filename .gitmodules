@@ -1,3 +1,0 @@
-[submodule "SDK/librealsense"]
-	path = SDK/librealsense
-	url = https://github.com/IntelRealSense/librealsense.git
