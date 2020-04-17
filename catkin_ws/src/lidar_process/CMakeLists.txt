@@ -110,7 +110,7 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 ## Rename C++ executable without prefix
-add_executable(get_depth_node src/get_depth.cpp)
+add_executable(lidar_process_node src/lidar_process.cpp)
 
-target_link_libraries(get_depth_node ${catkin_LIBRARIES})
+target_link_libraries(lidar_process_node ${catkin_LIBRARIES})
 

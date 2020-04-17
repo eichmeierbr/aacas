@@ -1,6 +1,4 @@
 #include <ros/ros.h>
-#include <yolov3_pytorch_ros/BoundingBox.h>
-#include <yolov3_pytorch_ros/BoundingBoxes.h>
 #include <yolov3_sort/BoundingBox.h>
 #include <yolov3_sort/BoundingBoxes.h>
 
@@ -343,7 +341,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
   int main (int argc, char** argv)
   {
     // Initialize ROS
-    ros::init (argc, argv, "get_depth");
+    ros::init (argc, argv, "lidar_process_node");
     ros::NodeHandle n;
 
     ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
