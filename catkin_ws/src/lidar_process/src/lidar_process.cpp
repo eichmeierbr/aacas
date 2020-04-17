@@ -1,7 +1,6 @@
 #include <ros/ros.h>
 #include <yolov3_sort/BoundingBox.h>
 #include <yolov3_sort/BoundingBoxes.h>
-
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -22,6 +21,7 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 
+// Cpp packages
 #include<iostream> 
 #include <vector>
 #include <typeinfo> 
@@ -301,8 +301,6 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
             pc_processer.cluster();
             //get position of the tracket 
             instance_pos*inst_pos_ptr = pc_processer.get_pos();
-            // cout << "x"<<inst_pos_ptr->x << endl;
-            // cout << "y"<<inst_pos_ptr->y << endl;
             instance_pos_dict[obj_indx] = inst_pos_ptr; 
         }
 
@@ -321,10 +319,10 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
     }
     
     for (auto const& x : instance_pos_dict)
-    {
+    {   
         std::cout << x.first  // string (key)
                 << ':' 
-                << x.second->x // string's value 
+                << x.second->y // string's value 
                 << std::endl ;
     }
 
