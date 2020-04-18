@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
-
+    <!-- 0.032512 -->
   <param name="tx" type="double" value="0.032512" />
   <param name="ty" type="double" value="0.09588" />
   <param name="tz" type="double" value="0.12573" />  
-  <!-- tz backup 0.12573 -->
+  <param name="buffer" type="double" value="15.0" />  
   <node name="lidar_process_node" pkg="lidar_process" type="lidar_process_node"  output ="screen">
   </node>
 

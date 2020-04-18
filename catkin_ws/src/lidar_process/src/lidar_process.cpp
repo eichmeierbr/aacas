@@ -37,6 +37,7 @@ sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
 float tx;
 float ty;
 float tz;
+float buffer;
 
 
 pcl::visualization::CloudViewer viewer("PCL Viewer");
@@ -117,7 +118,7 @@ class pc_process{
             // pcl::toROSMsg(*cropped_cloud,pub_cloud);
         }
 
-    void get_points_in_bb(yolov3_sort::BoundingBox bb){
+    bool get_points_in_bb(yolov3_sort::BoundingBox bb){
         pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>);
         tmp_cloud_in_bb ->is_dense = true;
 
@@ -145,7 +146,7 @@ class pc_process{
                     float y = two_loc[1]/two_loc[2];
                     float z = two_loc[2];
 
-                    int buffer =5;
+                    // int buffer =40;
                     //Select ones that are in the bounding box. 
                     if (x>bb.xmin-buffer && x<bb.xmax+buffer && y>bb.ymin-buffer && y<bb.ymax+buffer){
                         
@@ -167,65 +168,64 @@ class pc_process{
                 }
             }
             this -> cloud_in_bb = tmp_cloud_in_bb;
+            // viewer.showCloud(this->cloud_in_bb);
+            if (tmp_cloud_in_bb->points.size()>0){
+                return true;
+            }
+            else{
+                return false;
+            }
         // viewer.showCloud(cloud_in_bb);
         }
     
     
     void cluster(){
+            // if (cloud_in_bb->points.size() > 0){
+                // Create the segmentation object for the planar model and set all the parameters
+                // pcl::SACSegmentation<pcl::PointXYZ> seg;
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
-        // Create the segmentation object for the planar model and set all the parameters
-        pcl::SACSegmentation<pcl::PointXYZ> seg;
-        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
-        pcl::PCDWriter writer;
-        seg.setOptimizeCoefficients (true);
-        seg.setModelType (pcl::SACMODEL_PLANE);
-        seg.setMethodType (pcl::SAC_RANSAC);
-        seg.setMaxIterations (100);
-        seg.setDistanceThreshold (0.02);
-
-
-        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
-        tree->setInputCloud (cloud_in_bb);
-
-        std::vector<pcl::PointIndices> cluster_indices;
-        pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-        ec.setClusterTolerance (0.2); // 2cm
-        ec.setMinClusterSize (5);
-        ec.setMaxClusterSize (25000);
-        ec.setSearchMethod (tree);
-        ec.setInputCloud(cloud_in_bb);
-        ec.extract (cluster_indices);
+                // seg.setOptimizeCoefficients (true);
+                // seg.setModelType (pcl::SACMODEL_PLANE);
+                // seg.setMethodType (pcl::SAC_RANSAC);
+                // seg.setMaxIterations (100);
+                // seg.setDistanceThreshold (0.02);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
+                pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+                tree->setInputCloud (cloud_in_bb);
+                        std::vector<pcl::PointIndices> cluster_indices;
+                pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+                ec.setClusterTolerance (0.2); // 2cm
+                ec.setMinClusterSize (5);
+                ec.setMaxClusterSize (25000);
+                ec.setSearchMethod (tree);
+                ec.setInputCloud(cloud_in_bb);
+                ec.extract (cluster_indices);
 
 
-        int min_depth = 0;
-        int min_index = 0;
-        for (int i =0; i< cluster_indices.size();i++){
-            
-            float avg_depth = get_cluster_avg_detph(cluster_indices,i);
-            if (i==0) {
-                min_depth = avg_depth;
-                min_index =i;
-                }
-            else{
-                if (avg_depth < min_depth){
-                    min_index =i;
+                int min_depth = 0;
+                int min_index = 0;
+                for (int i =0; i< cluster_indices.size();i++){
+                    
+                    float avg_depth = get_cluster_avg_detph(cluster_indices,i);
+                    if (i==0) {
+                        min_depth = avg_depth;
+                        min_index =i;
+                        }
+                    else{
+                        if (avg_depth < min_depth){
+                            min_index =i;
+                        }
+
+                    }
                 }
 
-            }
-        }
-
-        // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
-        for (std::vector<int>::const_iterator pit =  cluster_indices[min_index].indices.begin (); pit != cluster_indices[min_index].indices.end (); ++pit)
-            {
-                cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
-            }
-        
-            viewer.showCloud(cloud_cluster);
-
-        // }
+                for (std::vector<int>::const_iterator pit =  cluster_indices[min_index].indices.begin (); pit != cluster_indices[min_index].indices.end (); ++pit)
+                    {
+                        tmp_cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
+                    }
+                
+                this->cloud_cluster = tmp_cloud_cluster;
+                viewer.showCloud(tmp_cloud_cluster);
 
     }
     
@@ -288,7 +288,7 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         // instance already being tracked, tacklet dead
         // if (bb.label == 0){
         if (instance_pos_dict.count(obj_indx) && bb.xmin==-1 && bb.xmax==-1){
-            cout << "case 1 " << endl;
+            // cout << "case 1 " << endl;
             instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
             instance_pos_dict.erase(obj_indx);
             delete inst_pos_ptr;
@@ -296,34 +296,34 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
 
         // instance already being tracked, tacklet still active
         else if (instance_pos_dict.count(obj_indx)){
-            cout << "case 2 " << endl;
-            pc_processer.get_points_in_bb(bb);
-            pc_processer.cluster();
-            //get position of the tracket 
-            instance_pos*inst_pos_ptr = pc_processer.get_pos();
-            instance_pos_dict[obj_indx] = inst_pos_ptr; 
+            // cout << "case 2 " << endl;
+            if (pc_processer.get_points_in_bb(bb)==true)
+            {
+                pc_processer.cluster();
+                //get position of the tracket 
+                instance_pos*inst_pos_ptr = pc_processer.get_pos();
+                instance_pos_dict[obj_indx] = inst_pos_ptr; 
+            }
         }
 
         else if (!instance_pos_dict.count(obj_indx)){
-            cout << "case 3" << endl;
-            pc_processer.get_points_in_bb(bb);
-            pc_processer.cluster();
-
-            //get position of the tracklet
-            instance_pos*inst_pos_ptr = pc_processer.get_pos();
-            cout << inst_pos_ptr->x << endl;
-            //insert the object position and instance id into dictionary 
-            instance_pos_dict.insert({obj_indx,inst_pos_ptr});
+            // cout << "case 3" << endl;
+            if (pc_processer.get_points_in_bb(bb)==true){
+                pc_processer.cluster();
+                //get position of the tracklet
+                instance_pos*inst_pos_ptr = pc_processer.get_pos();
+                instance_pos_dict.insert({obj_indx,inst_pos_ptr});
+            }
         }
         // }
     }
     
     for (auto const& x : instance_pos_dict)
     {   
-        std::cout << x.first  // string (key)
-                << ':' 
-                << x.second->y // string's value 
-                << std::endl ;
+        cout << "Instance ID "<<x.first  // string (key)
+                << ':' << endl;
+        cout << "x" << x.second->x << endl;
+        cout << "y" << x.second-> y<< endl;
     }
 
 } 
@@ -347,6 +347,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     n.getParam("tx", tx);
     n.getParam("ty", ty);
     n.getParam("tz", tz);
+    n.getParam("buffer", buffer);
 
     
     // Create a ROS subscriber for the input point cloud
