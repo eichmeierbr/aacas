@@ -40,7 +40,7 @@ float tz;
 float buffer;
 
 
-pcl::visualization::CloudViewer viewer("PCL Viewer");
+// pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -225,7 +225,7 @@ class pc_process{
                     }
                 
                 this->cloud_cluster = tmp_cloud_cluster;
-                viewer.showCloud(tmp_cloud_cluster);
+                // viewer.showCloud(tmp_cloud_cluster);
 
     }
     

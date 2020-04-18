@@ -11,8 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   pcl_ros
   roscpp
-  sensor_msgs
-  yolov3_pytorch_ros
+  sensor_msgs 
+  yolov3_sort
 
 )   
 

@@ -4,7 +4,7 @@
   <param name="tx" type="double" value="0.032512" />
   <param name="ty" type="double" value="0.09588" />
   <param name="tz" type="double" value="0.12573" />  
-  <param name="buffer" type="double" value="15.0" />  
+  <param name="buffer" type="double" value="0.0" />  
   <node name="lidar_process_node" pkg="lidar_process" type="lidar_process_node"  output ="screen">
   </node>
 
