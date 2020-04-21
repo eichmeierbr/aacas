@@ -36,6 +36,7 @@ using namespace std;
 sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
 yolov3_sort::BoundingBox bb;
+yolov3_sort:: BoundingBoxes bbox_msg;
 sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
 
 float tx;
@@ -288,12 +289,75 @@ class pc_process{
 
 
 void bb_cb(const yolov3_sort:: BoundingBoxes msg){
+    bbox_msg = msg;
+    // pc_process pc_processer; 
+    // pc_processer.crop_cloud(point_cloud_msg);
+    // //loop through all bounding boxes
+    // for (int i =0; i<msg.bounding_boxes.size();i++){
+    //     // instance ID of the object
+    //     yolov3_sort::BoundingBox bb =  msg.bounding_boxes[i];
+    //     int obj_indx = bb.idx;
+    //     // instance already being tracked, tacklet dead
+    //     if (bb.idx == 0){
+    //     if (instance_pos_dict.count(obj_indx) && bb.label==-1){
+    //         // cout << "case 1 " << endl;
+    //         instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
+    //         instance_pos_dict.erase(obj_indx);
+    //         delete inst_pos_ptr;
+    //     }
+
+    //     // instance already being tracked, tacklet still active
+    //     else if (instance_pos_dict.count(obj_indx)){
+    //         // cout << "case 2 " << endl;
+    //         if (pc_processer.get_points_in_bb(bb)==true)
+    //         {
+    //             pc_processer.cluster();
+    //             //get position of the tracket 
+    //             instance_pos*inst_pos_ptr = pc_processer.get_pos();
+    //             instance_pos_dict[obj_indx] = inst_pos_ptr; 
+    //         }
+    //     }
+
+    //     else if (!instance_pos_dict.count(obj_indx)){
+    //         // cout << "case 3" << endl;
+    //         if (pc_processer.get_points_in_bb(bb)==true){
+    //             pc_processer.cluster();
+    //             //get position of the tracklet
+    //             instance_pos*inst_pos_ptr = pc_processer.get_pos();
+    //             instance_pos_dict.insert({obj_indx,inst_pos_ptr});
+    //         }
+    //     }
+    //     }
+    // }
+    
+    // for (auto const& x : instance_pos_dict)
+    // {   
+    //     cout << "Instance ID "<<x.first  // string (key)
+    //             << ':' << endl;
+    //     cout << "x" << x.second->x << endl;
+    //     cout << "y" << x.second-> y<< endl;
+    //     // cout <<  x.second->x << endl;
+    //     // cout <<  x.second-> y<< endl;
+    //     // // myfile.open ("example.txt");
+    //     // if (myfile.is_open()){
+    //     // myfile <<x.second->x <<"\n";
+    //     // myfile <<x.second->y <<"\n";
+    //     // }
+        
+    // }
+
+} 
+
+
+void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
+    point_cloud_msg = msg;
+    
     pc_process pc_processer; 
     pc_processer.crop_cloud(point_cloud_msg);
     //loop through all bounding boxes
-    for (int i =0; i<msg.bounding_boxes.size();i++){
+    for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
         // instance ID of the object
-        yolov3_sort::BoundingBox bb =  msg.bounding_boxes[i];
+        yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
         int obj_indx = bb.idx;
         // instance already being tracked, tacklet dead
         if (bb.idx == 0){
@@ -343,12 +407,6 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         // }
         
     }
-
-} 
-
-
-void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
-    point_cloud_msg = msg;
 }
 
 
