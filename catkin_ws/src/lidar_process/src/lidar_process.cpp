@@ -23,11 +23,15 @@
 
 // Cpp packages
 #include<iostream> 
+#include <cstdlib>
 #include <vector>
 #include <typeinfo> 
 #include <unordered_map>
+#include<cmath>
+#include <fstream>
 using namespace std;
 
+// ofstream myfile("/home/stefanzhu/Documents/aacas/catkin_ws/src/lidar_process/x_y_measurement.txt");
 
 sensor_msgs::PointCloud2 pub_cloud;
 sensor_msgs::Image image_;
@@ -40,7 +44,7 @@ float tz;
 float buffer;
 
 
-// pcl::visualization::CloudViewer viewer("PCL Viewer");
+pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -132,7 +136,7 @@ class pc_process{
             {   
                 // viewer.showCloud(cropped_cloud);
                 // filter out the noise close to the lidar
-                if (cropped_cloud->points[i].x > 0.01 && cropped_cloud->points[i].y > 0.01){
+                if (cropped_cloud->points[i].x > 0.01 && abs(cropped_cloud->points[i].y) > 0.01){
                     
                     // Project 3D points to 2D
                     Eigen::Vector4f three_loc;
@@ -146,7 +150,12 @@ class pc_process{
                     float y = two_loc[1]/two_loc[2];
                     float z = two_loc[2];
 
-                    // int buffer =40;
+
+                    // cout << "bb_xmin" << bb.xmin-buffer << endl;
+                    // cout << "bb_xmax" << bb.xmax-buffer << endl;
+                    // cout << "projected_x" << x << endl;
+                    // cout << cropped_cloud->points[i].y << endl;
+
                     //Select ones that are in the bounding box. 
                     if (x>bb.xmin-buffer && x<bb.xmax+buffer && y>bb.ymin-buffer && y<bb.ymax+buffer){
                         
@@ -168,14 +177,13 @@ class pc_process{
                 }
             }
             this -> cloud_in_bb = tmp_cloud_in_bb;
-            // viewer.showCloud(this->cloud_in_bb);
+            viewer.showCloud(this->cloud_in_bb);
             if (tmp_cloud_in_bb->points.size()>0){
                 return true;
             }
             else{
                 return false;
             }
-        // viewer.showCloud(cloud_in_bb);
         }
     
     
@@ -201,31 +209,33 @@ class pc_process{
                 ec.setInputCloud(cloud_in_bb);
                 ec.extract (cluster_indices);
 
+                if (cluster_indices.size() > 0){
 
-                int min_depth = 0;
-                int min_index = 0;
-                for (int i =0; i< cluster_indices.size();i++){
-                    
-                    float avg_depth = get_cluster_avg_detph(cluster_indices,i);
-                    if (i==0) {
-                        min_depth = avg_depth;
-                        min_index =i;
-                        }
-                    else{
-                        if (avg_depth < min_depth){
+                    int min_depth = 0;
+                    int min_index = 0;
+                    for (int i =0; i< cluster_indices.size();i++){
+                        
+                        float avg_depth = get_cluster_avg_detph(cluster_indices,i);
+                        if (i==0) {
+                            min_depth = avg_depth;
                             min_index =i;
+                            }
+                        else{
+                            if (avg_depth < min_depth){
+                                min_index =i;
+                            }
+
                         }
-
                     }
+
+                    for (std::vector<int>::const_iterator pit =  cluster_indices[min_index].indices.begin (); pit != cluster_indices[min_index].indices.end (); ++pit)
+                        {
+                            tmp_cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
+                        }
+                    
+                    this->cloud_cluster = tmp_cloud_cluster;
+                    // viewer.showCloud(tmp_cloud_cluster);
                 }
-
-                for (std::vector<int>::const_iterator pit =  cluster_indices[min_index].indices.begin (); pit != cluster_indices[min_index].indices.end (); ++pit)
-                    {
-                        tmp_cloud_cluster->points.push_back (cloud_in_bb->points[*pit]); 
-                    }
-                
-                this->cloud_cluster = tmp_cloud_cluster;
-                // viewer.showCloud(tmp_cloud_cluster);
 
     }
     
@@ -235,7 +245,7 @@ class pc_process{
         float avg_depth = 0;
         for (std::vector<int>::const_iterator pit =  cluster_indices[idx].indices.begin (); pit != cluster_indices[idx].indices.end (); ++pit)
             {
-                total_depth += cloud_in_bb->points[*pit].x; 
+                total_depth += sqrt(pow(cloud_in_bb->points[*pit].x,2) + pow(cloud_in_bb->points[*pit].y,2)); 
             }
         avg_depth = total_depth/size;
         return avg_depth;
@@ -286,8 +296,8 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         yolov3_sort::BoundingBox bb =  msg.bounding_boxes[i];
         int obj_indx = bb.idx;
         // instance already being tracked, tacklet dead
-        // if (bb.label == 0){
-        if (instance_pos_dict.count(obj_indx) && bb.xmin==-1 && bb.xmax==-1){
+        if (bb.idx == 0){
+        if (instance_pos_dict.count(obj_indx) && bb.label==-1){
             // cout << "case 1 " << endl;
             instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
             instance_pos_dict.erase(obj_indx);
@@ -315,7 +325,7 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
                 instance_pos_dict.insert({obj_indx,inst_pos_ptr});
             }
         }
-        // }
+        }
     }
     
     for (auto const& x : instance_pos_dict)
@@ -324,6 +334,14 @@ void bb_cb(const yolov3_sort:: BoundingBoxes msg){
                 << ':' << endl;
         cout << "x" << x.second->x << endl;
         cout << "y" << x.second-> y<< endl;
+        // cout <<  x.second->x << endl;
+        // cout <<  x.second-> y<< endl;
+        // // myfile.open ("example.txt");
+        // if (myfile.is_open()){
+        // myfile <<x.second->x <<"\n";
+        // myfile <<x.second->y <<"\n";
+        // }
+        
     }
 
 } 
