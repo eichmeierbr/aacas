@@ -29,6 +29,8 @@
 #include <unordered_map>
 #include<cmath>
 #include <fstream>
+
+#include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
 
 // ofstream myfile("/home/stefanzhu/Documents/aacas/catkin_ws/src/lidar_process/x_y_measurement.txt");
@@ -44,8 +46,9 @@ float ty;
 float tz;
 float buffer;
 
-
-pcl::visualization::CloudViewer viewer("PCL Viewer");
+pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+// viewer->setBackgroundColor (0, 0, 0);
+// pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -151,12 +154,6 @@ class pc_process{
                     float y = two_loc[1]/two_loc[2];
                     float z = two_loc[2];
 
-
-                    // cout << "bb_xmin" << bb.xmin-buffer << endl;
-                    // cout << "bb_xmax" << bb.xmax-buffer << endl;
-                    // cout << "projected_x" << x << endl;
-                    // cout << cropped_cloud->points[i].y << endl;
-
                     //Select ones that are in the bounding box. 
                     if (x>bb.xmin-buffer && x<bb.xmax+buffer && y>bb.ymin-buffer && y<bb.ymax+buffer){
                         
@@ -178,7 +175,8 @@ class pc_process{
                 }
             }
             this -> cloud_in_bb = tmp_cloud_in_bb;
-            viewer.showCloud(this->cloud_in_bb);
+            // viewer.showCloud(this->cloud_in_bb);
+
             if (tmp_cloud_in_bb->points.size()>0){
                 return true;
             }
@@ -189,15 +187,7 @@ class pc_process{
     
     
     void cluster(){
-            // if (cloud_in_bb->points.size() > 0){
-                // Create the segmentation object for the planar model and set all the parameters
-                // pcl::SACSegmentation<pcl::PointXYZ> seg;
 
-                // seg.setOptimizeCoefficients (true);
-                // seg.setModelType (pcl::SACMODEL_PLANE);
-                // seg.setMethodType (pcl::SAC_RANSAC);
-                // seg.setMaxIterations (100);
-                // seg.setDistanceThreshold (0.02);
                 pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
                 pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
                 tree->setInputCloud (cloud_in_bb);
@@ -235,6 +225,21 @@ class pc_process{
                         }
                     
                     this->cloud_cluster = tmp_cloud_cluster;
+                    
+                    viewer->setBackgroundColor (0, 0, 0);
+
+                    viewer->removePointCloud("all_points");
+                    viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "all_points");
+
+                    viewer->removePointCloud("cloud_cluster");
+                    pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr tmp_cloud_cluster);
+                    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_color (tmp_cloud_cluster, 255, 0, 0);
+                    viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_cluster, single_color, "cloud_cluster");
+                    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "cloud_cluster");
+                    viewer->addCoordinateSystem (1.0);
+                    viewer->spinOnce (100);
+                    
+
                     // viewer.showCloud(tmp_cloud_cluster);
                 }
 
@@ -290,61 +295,6 @@ class pc_process{
 
 void bb_cb(const yolov3_sort:: BoundingBoxes msg){
     bbox_msg = msg;
-    // pc_process pc_processer; 
-    // pc_processer.crop_cloud(point_cloud_msg);
-    // //loop through all bounding boxes
-    // for (int i =0; i<msg.bounding_boxes.size();i++){
-    //     // instance ID of the object
-    //     yolov3_sort::BoundingBox bb =  msg.bounding_boxes[i];
-    //     int obj_indx = bb.idx;
-    //     // instance already being tracked, tacklet dead
-    //     if (bb.idx == 0){
-    //     if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-    //         // cout << "case 1 " << endl;
-    //         instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
-    //         instance_pos_dict.erase(obj_indx);
-    //         delete inst_pos_ptr;
-    //     }
-
-    //     // instance already being tracked, tacklet still active
-    //     else if (instance_pos_dict.count(obj_indx)){
-    //         // cout << "case 2 " << endl;
-    //         if (pc_processer.get_points_in_bb(bb)==true)
-    //         {
-    //             pc_processer.cluster();
-    //             //get position of the tracket 
-    //             instance_pos*inst_pos_ptr = pc_processer.get_pos();
-    //             instance_pos_dict[obj_indx] = inst_pos_ptr; 
-    //         }
-    //     }
-
-    //     else if (!instance_pos_dict.count(obj_indx)){
-    //         // cout << "case 3" << endl;
-    //         if (pc_processer.get_points_in_bb(bb)==true){
-    //             pc_processer.cluster();
-    //             //get position of the tracklet
-    //             instance_pos*inst_pos_ptr = pc_processer.get_pos();
-    //             instance_pos_dict.insert({obj_indx,inst_pos_ptr});
-    //         }
-    //     }
-    //     }
-    // }
-    
-    // for (auto const& x : instance_pos_dict)
-    // {   
-    //     cout << "Instance ID "<<x.first  // string (key)
-    //             << ':' << endl;
-    //     cout << "x" << x.second->x << endl;
-    //     cout << "y" << x.second-> y<< endl;
-    //     // cout <<  x.second->x << endl;
-    //     // cout <<  x.second-> y<< endl;
-    //     // // myfile.open ("example.txt");
-    //     // if (myfile.is_open()){
-    //     // myfile <<x.second->x <<"\n";
-    //     // myfile <<x.second->y <<"\n";
-    //     // }
-        
-    // }
 
 } 
 
@@ -360,7 +310,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
         int obj_indx = bb.idx;
         // instance already being tracked, tacklet dead
-        if (bb.idx == 0){
+        if (bb.label == 0){
         if (instance_pos_dict.count(obj_indx) && bb.label==-1){
             // cout << "case 1 " << endl;
             instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
@@ -400,7 +350,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         cout << "y" << x.second-> y<< endl;
         // cout <<  x.second->x << endl;
         // cout <<  x.second-> y<< endl;
-        // // myfile.open ("example.txt");
+        // myfile.open ("example.txt");
         // if (myfile.is_open()){
         // myfile <<x.second->x <<"\n";
         // myfile <<x.second->y <<"\n";
@@ -417,6 +367,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     // Initialize ROS
     ros::init (argc, argv, "lidar_process_node");
     ros::NodeHandle n;
+
 
     ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
 

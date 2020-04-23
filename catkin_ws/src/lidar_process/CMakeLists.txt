@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs 
   yolov3_sort
+  rviz_visual_tools
 
 )   
 
