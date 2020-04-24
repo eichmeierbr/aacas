@@ -326,7 +326,7 @@ class pc_process{
 
 void bb_cb(const yolov3_sort:: BoundingBoxes msg){
     bbox_msg = msg;
-
+ 
 } 
 
 
@@ -335,22 +335,25 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     
     pc_process pc_processer; 
     pc_processer.crop_cloud(point_cloud_msg);
+    
     //loop through all bounding boxes
     for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
         // instance ID of the object
         yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
         int obj_indx = bb.idx;
         // instance already being tracked, tacklet dead
-        if (bb.label == 0){
+
         if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-            // cout << "case 1 " << endl;
+            cout << "case 1 " << endl;
+            cout << "obj_indx" << obj_indx<< endl;
             instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
             instance_pos_dict.erase(obj_indx);
             delete inst_pos_ptr;
         }
 
+        if (bb.label == 0){
         // instance already being tracked, tacklet still active
-        else if (instance_pos_dict.count(obj_indx)){
+        if (instance_pos_dict.count(obj_indx)){
             // cout << "case 2 " << endl;
             if (pc_processer.get_points_in_bb(bb)==true)
             {
@@ -388,6 +391,7 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         // }
         
     }
+
 }
 
 
