@@ -35,20 +35,8 @@ using namespace std;
 
 // ofstream myfile("/home/stefanzhu/Documents/aacas/catkin_ws/src/lidar_process/x_y_measurement.txt");
 
-sensor_msgs::PointCloud2 pub_cloud;
-sensor_msgs::Image image_;
-yolov3_sort::BoundingBox bb;
-yolov3_sort:: BoundingBoxes bbox_msg;
-sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
-
-float tx;
-float ty;
-float tz;
-float buffer;
 
 pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-// viewer->setBackgroundColor (0, 0, 0);
-// pcl::visualization::CloudViewer viewer("PCL Viewer");
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -63,8 +51,22 @@ struct instance_pos{
 unordered_map<int ,instance_pos*> instance_pos_dict;
 
 class pc_process{
+    private:
+    float tx;
+    float ty;
+    float tz;
+    float buffer;
+
+    sensor_msgs::PointCloud2 pub_cloud;
+    yolov3_sort::BoundingBox bb;
+    yolov3_sort:: BoundingBoxes bbox_msg;
+    sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
+
+    ros::Subscriber cloud_sub;
+    ros::Subscriber bb_sub;
+
     // Input Cloud
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
     // Cropped Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr cropped_cloud;
     //Projected Cloud in the bounding box
@@ -79,17 +81,29 @@ class pc_process{
     Eigen:: MatrixXf intrinsics;
     Eigen:: MatrixXf extrinsics; 
     Eigen:: MatrixXf camera_matrix;
-  
+
+    void convert_to_pcl(const sensor_msgs::PointCloud2ConstPtr& msg){
+        pcl::fromROSMsg (*msg, *input_cloud);
+    }
+    
 
     public:    
     pc_process():intrinsics(3,3),extrinsics(3,4),camera_matrix(3,4), 
-    cloud(new pcl::PointCloud<pcl::PointXYZ>), 
-    cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>),
+    input_cloud(new pcl::PointCloud<pcl::PointXYZ>), 
+    cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>), 
     proj_cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>),
     cloud_in_bb(new pcl::PointCloud<pcl::PointXYZ>),
     cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>)
     {   
-        
+        ros::NodeHandle n;
+        n.getParam("tx", tx);
+        n.getParam("ty", ty);
+        n.getParam("tz", tz);
+        n.getParam("buffer", buffer);
+
+        cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
+        bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
+
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
                     0.0, 575.2453, 246.5657, 
@@ -107,23 +121,33 @@ class pc_process{
 
     void crop_cloud(const sensor_msgs::PointCloud2ConstPtr& msg){
         convert_to_pcl(msg);
-        cropped_cloud->is_dense = true;
-        for (std::size_t i = 0; i < cloud->points.size(); ++i)
+        pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        tmp_cropped_cloud->is_dense = true;
+        for (std::size_t i = 0; i < input_cloud->points.size(); ++i)
             {   
                 //Flipping the lidar coordinates to adjust for the upside down velodyne installation
-                float x = cloud->points[i].x;
-                float y = cloud->points[i].y;
-                float z = cloud->points[i].z;
+                float x = input_cloud->points[i].x;
+                float y = input_cloud->points[i].y;
+                float z = input_cloud->points[i].z;
                 if ((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)){    
                     pcl::PointXYZ point;
                     point.x = x;
                     point.y = y;
                     point.z = z;
-                    cropped_cloud->points.push_back(point);
+                    tmp_cropped_cloud->points.push_back(point);
                 }
             }
+            this->cropped_cloud = tmp_cropped_cloud;
             // viewer.showCloud(cropped_cloud);
             // pcl::toROSMsg(*cropped_cloud,pub_cloud);
+            
+            // viewer->setBackgroundColor (0, 0, 0);
+            // //background points
+            // viewer->removePointCloud("cropped_cloud");
+            // viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "cropped_cloud");
+            // viewer->spinOnce (100);
+            // cout << " cropped_cloud size" << cropped_cloud->points.size() << endl;
+            
         }
 
     bool get_points_in_bb(yolov3_sort::BoundingBox bb){
@@ -175,6 +199,12 @@ class pc_process{
                 }
             }
             this -> cloud_in_bb = tmp_cloud_in_bb;
+                
+            // viewer->setBackgroundColor (0, 0, 0);
+            // //background points
+            // viewer->removePointCloud("cloud_in_bb");
+            // viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_in_bb, "cloud_in_bb");
+            // viewer->spinOnce (100);
             // viewer.showCloud(this->cloud_in_bb);
 
             if (tmp_cloud_in_bb->points.size()>0){
@@ -271,7 +301,7 @@ class pc_process{
                     viewer->spinOnce (100);
                     //////////////////////////////////////////////////////////////////////
 
-                    // viewer.showCloud(tmp_cloud_cluster);
+                    // // viewer.showCloud(tmp_cloud_cluster);
                 }
 
     }
@@ -314,85 +344,79 @@ class pc_process{
         return inst_pos_ptr;
     }
 
+    void bb_cb(const yolov3_sort:: BoundingBoxes msg){
+        bbox_msg = msg;
+    
+    } 
 
-    private:
-    void convert_to_pcl(const sensor_msgs::PointCloud2ConstPtr& msg){
-        pcl::fromROSMsg (*msg, *cloud);
+
+    void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
+        point_cloud_msg = msg;
+        
+        crop_cloud(point_cloud_msg);
+        
+        //loop through all bounding boxes
+        for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
+            // instance ID of the object
+            yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
+            int obj_indx = bb.idx;
+            // instance already being tracked, tacklet dead
+
+            if (instance_pos_dict.count(obj_indx) && bb.label==-1){
+                cout << "case 1 " << endl;
+                cout << "obj_indx" << obj_indx<< endl;
+                instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
+                instance_pos_dict.erase(obj_indx);
+                delete inst_pos_ptr;
+            }
+
+            if (bb.label == 0){
+            // instance already being tracked, tacklet still active
+            if (instance_pos_dict.count(obj_indx)){
+                // cout << "case 2 " << endl;
+                if (get_points_in_bb(bb)==true)
+                {
+                    cluster();
+                    //get position of the tracket 
+                    instance_pos*inst_pos_ptr = get_pos();
+                    instance_pos_dict[obj_indx] = inst_pos_ptr; 
+                }
+            }
+
+            else if (!instance_pos_dict.count(obj_indx)){
+                // cout << "case 3" << endl;
+                if (get_points_in_bb(bb)==true){
+                    cluster();
+                    //get position of the tracklet
+                    instance_pos*inst_pos_ptr = get_pos();
+                    instance_pos_dict.insert({obj_indx,inst_pos_ptr});
+                }
+            }
+            }
+        }
+        
+        for (auto const& x : instance_pos_dict)
+        {   
+            cout << "Instance ID "<<x.first  // string (key)
+                    << ':' << endl;
+            cout << "x" << x.second->x << endl;
+            cout << "y" << x.second->y<< endl;
+            // cout <<  x.second->x << endl;
+            // cout <<  x.second-> y<< endl;
+            // myfile.open ("example.txt");
+            // if (myfile.is_open()){
+            // myfile <<x.second->x <<"\n";
+            // myfile <<x.second->y <<"\n";
+            // }
+            
+        }
+
     }
+
 
 };
 
 
-
-void bb_cb(const yolov3_sort:: BoundingBoxes msg){
-    bbox_msg = msg;
- 
-} 
-
-
-void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
-    point_cloud_msg = msg;
-    
-    pc_process pc_processer; 
-    pc_processer.crop_cloud(point_cloud_msg);
-    
-    //loop through all bounding boxes
-    for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
-        // instance ID of the object
-        yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
-        int obj_indx = bb.idx;
-        // instance already being tracked, tacklet dead
-
-        if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-            cout << "case 1 " << endl;
-            cout << "obj_indx" << obj_indx<< endl;
-            instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
-            instance_pos_dict.erase(obj_indx);
-            delete inst_pos_ptr;
-        }
-
-        if (bb.label == 0){
-        // instance already being tracked, tacklet still active
-        if (instance_pos_dict.count(obj_indx)){
-            // cout << "case 2 " << endl;
-            if (pc_processer.get_points_in_bb(bb)==true)
-            {
-                pc_processer.cluster();
-                //get position of the tracket 
-                instance_pos*inst_pos_ptr = pc_processer.get_pos();
-                instance_pos_dict[obj_indx] = inst_pos_ptr; 
-            }
-        }
-
-        else if (!instance_pos_dict.count(obj_indx)){
-            // cout << "case 3" << endl;
-            if (pc_processer.get_points_in_bb(bb)==true){
-                pc_processer.cluster();
-                //get position of the tracklet
-                instance_pos*inst_pos_ptr = pc_processer.get_pos();
-                instance_pos_dict.insert({obj_indx,inst_pos_ptr});
-            }
-        }
-        }
-    }
-    
-    for (auto const& x : instance_pos_dict)
-    {   
-        cout << "Instance ID "<<x.first  // string (key)
-                << ':' << endl;
-        cout << "x" << x.second->x << endl;
-        cout << "y" << x.second-> y<< endl;
-        // cout <<  x.second->x << endl;
-        // cout <<  x.second-> y<< endl;
-        // myfile.open ("example.txt");
-        // if (myfile.is_open()){
-        // myfile <<x.second->x <<"\n";
-        // myfile <<x.second->y <<"\n";
-        // }
-        
-    }
-
-}
 
 
 
@@ -402,27 +426,22 @@ void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
     // Initialize ROS
     ros::init (argc, argv, "lidar_process_node");
     ros::NodeHandle n;
+    pc_process pc_processer; 
 
-
-    ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
-
-    n.getParam("tx", tx);
-    n.getParam("ty", ty);
-    n.getParam("tz", tz);
-    n.getParam("buffer", buffer);
+    // ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
 
     
     // Create a ROS subscriber for the input point cloud
-    ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
-    ros::Subscriber bb_sub = n.subscribe ("/tracked_objects", 1, bb_cb);
-    ros::Rate loop_rate(20);
-    while (n.ok())
-     {
-    //    pcl_conversions::toPCL(ros::Time::now(), msg->header.stamp);
-       pub.publish (pub_cloud);
-       ros::spinOnce ();
-       loop_rate.sleep ();
-     }
+    // ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
+    // ros::Subscriber bb_sub = n.subscribe ("/tracked_objects", 1, bb_cb);
+    // ros::Rate loop_rate(20);
+    // while (n.ok())
+    //  {
+    // //    pcl_conversions::toPCL(ros::Time::now(), msg->header.stamp);
+    //    pub.publish (pub_cloud);
+    //    ros::spinOnce ();
+    //    loop_rate.sleep ();
+    //  }
     // Spin
     ros::spin ();
   }
