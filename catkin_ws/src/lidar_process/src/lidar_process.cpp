@@ -7,8 +7,6 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/ModelCoefficients.h>
-#include <pcl/filters/crop_box.h>
-#include <pcl/filters/project_inliers.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/visualization/cloud_viewer.h>
 
@@ -29,11 +27,10 @@
 #include <unordered_map>
 #include<cmath>
 #include <fstream>
+#include <lidar_process/tracked_obj.h>
 
 #include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
-
-// ofstream myfile("/home/stefanzhu/Documents/aacas/catkin_ws/src/lidar_process/x_y_measurement.txt");
 
 
 pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
@@ -64,6 +61,7 @@ class pc_process{
 
     ros::Subscriber cloud_sub;
     ros::Subscriber bb_sub;
+    ros::Publisher tracked_obj_pub;
 
     // Input Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
@@ -103,6 +101,7 @@ class pc_process{
 
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
+        tracked_obj_pub = n.advertise<lidar_process::tracked_obj> ("tracked_obj_pos", 1);
 
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
@@ -138,16 +137,6 @@ class pc_process{
                 }
             }
             this->cropped_cloud = tmp_cropped_cloud;
-            // viewer.showCloud(cropped_cloud);
-            // pcl::toROSMsg(*cropped_cloud,pub_cloud);
-            
-            // viewer->setBackgroundColor (0, 0, 0);
-            // //background points
-            // viewer->removePointCloud("cropped_cloud");
-            // viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "cropped_cloud");
-            // viewer->spinOnce (100);
-            // cout << " cropped_cloud size" << cropped_cloud->points.size() << endl;
-            
         }
 
     bool get_points_in_bb(yolov3_sort::BoundingBox bb){
@@ -162,7 +151,6 @@ class pc_process{
         // viewer.showCloud(cropped_cloud);
         for (std::size_t i = 0; i < cropped_cloud->points.size (); ++i)
             {   
-                // viewer.showCloud(cropped_cloud);
                 // filter out the noise close to the lidar
                 if (cropped_cloud->points[i].x > 0.01 && abs(cropped_cloud->points[i].y) > 0.01){
                     
@@ -199,13 +187,6 @@ class pc_process{
                 }
             }
             this -> cloud_in_bb = tmp_cloud_in_bb;
-                
-            // viewer->setBackgroundColor (0, 0, 0);
-            // //background points
-            // viewer->removePointCloud("cloud_in_bb");
-            // viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_in_bb, "cloud_in_bb");
-            // viewer->spinOnce (100);
-            // viewer.showCloud(this->cloud_in_bb);
 
             if (tmp_cloud_in_bb->points.size()>0){
                 return true;
@@ -344,6 +325,17 @@ class pc_process{
         return inst_pos_ptr;
     }
 
+
+    void publisher(int obj_indx , instance_pos*inst_pos_ptr){
+        lidar_process::tracked_obj tracked_obj_msg;
+        tracked_obj_msg.object_id = obj_indx; 
+        tracked_obj_msg.pos_x = inst_pos_ptr ->x;
+        tracked_obj_msg.pos_y = inst_pos_ptr ->y;
+        tracked_obj_msg.pos_z = inst_pos_ptr ->z;
+        tracked_obj_msg.header.stamp = ros::Time::now();
+        tracked_obj_pub.publish(tracked_obj_msg);
+    }
+
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
     
@@ -360,9 +352,9 @@ class pc_process{
             // instance ID of the object
             yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
             int obj_indx = bb.idx;
-            // instance already being tracked, tacklet dead
 
-            if (instance_pos_dict.count(obj_indx) && bb.label==-1){
+            // instance already being tracked and tacklet died, delete the obj
+            if (instance_pos_dict.count(obj_indx) && z.label==-1){
                 cout << "case 1 " << endl;
                 cout << "obj_indx" << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
@@ -370,9 +362,8 @@ class pc_process{
                 delete inst_pos_ptr;
             }
 
-            if (bb.label == 0){
             // instance already being tracked, tacklet still active
-            if (instance_pos_dict.count(obj_indx)){
+            else if (instance_pos_dict.count(obj_indx) && bb.label!=-1){
                 // cout << "case 2 " << endl;
                 if (get_points_in_bb(bb)==true)
                 {
@@ -383,6 +374,7 @@ class pc_process{
                 }
             }
 
+            //instance not being tracked yet. 
             else if (!instance_pos_dict.count(obj_indx)){
                 // cout << "case 3" << endl;
                 if (get_points_in_bb(bb)==true){
@@ -392,23 +384,11 @@ class pc_process{
                     instance_pos_dict.insert({obj_indx,inst_pos_ptr});
                 }
             }
-            }
         }
         
         for (auto const& x : instance_pos_dict)
         {   
-            cout << "Instance ID "<<x.first  // string (key)
-                    << ':' << endl;
-            cout << "x" << x.second->x << endl;
-            cout << "y" << x.second->y<< endl;
-            // cout <<  x.second->x << endl;
-            // cout <<  x.second-> y<< endl;
-            // myfile.open ("example.txt");
-            // if (myfile.is_open()){
-            // myfile <<x.second->x <<"\n";
-            // myfile <<x.second->y <<"\n";
-            // }
-            
+            publisher(x.first , x.second);
         }
 
     }
@@ -425,23 +405,6 @@ class pc_process{
   {
     // Initialize ROS
     ros::init (argc, argv, "lidar_process_node");
-    ros::NodeHandle n;
     pc_process pc_processer; 
-
-    // ros::Publisher pub = n.advertise<sensor_msgs::PointCloud2> ("output", 1);
-
-    
-    // Create a ROS subscriber for the input point cloud
-    // ros::Subscriber cloud_sub = n.subscribe ("/velodyne_points", 1, cloud_cb);
-    // ros::Subscriber bb_sub = n.subscribe ("/tracked_objects", 1, bb_cb);
-    // ros::Rate loop_rate(20);
-    // while (n.ok())
-    //  {
-    // //    pcl_conversions::toPCL(ros::Time::now(), msg->header.stamp);
-    //    pub.publish (pub_cloud);
-    //    ros::spinOnce ();
-    //    loop_rate.sleep ();
-    //  }
-    // Spin
     ros::spin ();
   }
