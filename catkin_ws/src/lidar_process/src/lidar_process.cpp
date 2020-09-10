@@ -354,7 +354,7 @@ class pc_process{
             int obj_indx = bb.idx;
 
             // instance already being tracked and tacklet died, delete the obj
-            if (instance_pos_dict.count(obj_indx) && z.label==-1){
+            if (instance_pos_dict.count(obj_indx) && bb.label==-1){
                 cout << "case 1 " << endl;
                 cout << "obj_indx" << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
