@@ -338,15 +338,7 @@ class pc_process{
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
-    
-    } 
-
-
-    void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
-        point_cloud_msg = msg;
-        
-        crop_cloud(point_cloud_msg);
-        
+                
         //loop through all bounding boxes
         for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
             // instance ID of the object
@@ -356,7 +348,7 @@ class pc_process{
             // instance already being tracked and tacklet died, delete the obj
             if (instance_pos_dict.count(obj_indx) && bb.label==-1){
                 cout << "case 1 " << endl;
-                cout << "deads tracklet obj_indx" << obj_indx<< endl;
+                cout << "dead tracklet obj_indx" << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
                 instance_pos_dict.erase(obj_indx);
                 delete inst_pos_ptr;
@@ -386,7 +378,16 @@ class pc_process{
                 }
             }
         }
-	cout << instance_pos_dict.size() << endl;        
+    
+    } 
+
+
+    void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
+        point_cloud_msg = msg;
+        
+        crop_cloud(point_cloud_msg);
+
+	    cout << instance_pos_dict.size() << endl;        
         for (auto const& x : instance_pos_dict)
         {   
             publisher(x.first , x.second);
