@@ -7,8 +7,6 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/ModelCoefficients.h>
-// #include <pcl/visualization/pcl_visualizer.h>
-// #include <pcl/visualization/cloud_viewer.h>
 
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
@@ -32,8 +30,6 @@
 #include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
 
-
-// pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -236,53 +232,6 @@ class pc_process{
                         }
                     
                     this->cloud_cluster = tmp_cloud_cluster;
-
-                    //////////////////////////////////////VISUALIZATION
-                    instance_pos*inst_pos_ptr = get_pos();
-                    pcl::PointXYZ proj_point;
-                    proj_point.x = inst_pos_ptr->x;
-                    proj_point.y = inst_pos_ptr->y;
-                    proj_point.z = 1;
-                    tmp_cloud_cluster->points.push_back(proj_point);
-
-
-                    // Adding grid points
-                    pcl::PointCloud<pcl::PointXYZ>::Ptr grid_points(new pcl::PointCloud<pcl::PointXYZ>);
-                    for (int i = -1; i < 2; i++){
-                        for (int j=3; j < 6;j++){
-                            pcl::PointXYZ point;
-                            point.x = j;
-                            point.y = i;
-                            point.z = 1;
-                            grid_points->points.push_back(point);
-                        }
-                    }
-
-                    
-                    // viewer->setBackgroundColor (0, 0, 0);
-                    // //background points
-                    // viewer->removePointCloud("all_points");
-                    // viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "all_points");
-
-                    // //Grid Points
-                    // viewer->removePointCloud("grid_points");
-                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr grid_points);
-                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> grid_color (grid_points, 0, 255, 0);
-                    // viewer->addPointCloud<pcl::PointXYZ> (grid_points, grid_color, "grid_points");
-                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "grid_points");
-
-
-
-                    // viewer->removePointCloud("cloud_cluster");
-                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr tmp_cloud_cluster);
-                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_color (tmp_cloud_cluster, 255, 0, 0);
-                    // viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_cluster, single_color, "cloud_cluster");
-                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "cloud_cluster");
-                    // // viewer->addCoordinateSystem (1.0);
-                    // viewer->spinOnce (100);
-                    //////////////////////////////////////////////////////////////////////
-
-                    // // viewer.showCloud(tmp_cloud_cluster);
                 }
 
     }
