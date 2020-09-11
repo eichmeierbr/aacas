@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+
+  <!-- Example Include Configuration File -->
+
+  
+  <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"></include>
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch"></include>
+  <include file="$(find yolov3_sort)/launch/tracker.launch"></include>
+  <include file="$(find lidar_process)/launch/launch_lidar_process.launch"></include>
+
+
+</launch>

@@ -7,8 +7,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/ModelCoefficients.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/visualization/cloud_viewer.h>
+// #include <pcl/visualization/pcl_visualizer.h>
+// #include <pcl/visualization/cloud_viewer.h>
 
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
@@ -33,7 +33,7 @@
 using namespace std;
 
 
-pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+// pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -259,27 +259,27 @@ class pc_process{
                     }
 
                     
-                    viewer->setBackgroundColor (0, 0, 0);
-                    //background points
-                    viewer->removePointCloud("all_points");
-                    viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "all_points");
+                    // viewer->setBackgroundColor (0, 0, 0);
+                    // //background points
+                    // viewer->removePointCloud("all_points");
+                    // viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "all_points");
 
-                    //Grid Points
-                    viewer->removePointCloud("grid_points");
-                    pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr grid_points);
-                    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> grid_color (grid_points, 0, 255, 0);
-                    viewer->addPointCloud<pcl::PointXYZ> (grid_points, grid_color, "grid_points");
-                    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "grid_points");
+                    // //Grid Points
+                    // viewer->removePointCloud("grid_points");
+                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr grid_points);
+                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> grid_color (grid_points, 0, 255, 0);
+                    // viewer->addPointCloud<pcl::PointXYZ> (grid_points, grid_color, "grid_points");
+                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "grid_points");
 
 
 
-                    viewer->removePointCloud("cloud_cluster");
-                    pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr tmp_cloud_cluster);
-                    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_color (tmp_cloud_cluster, 255, 0, 0);
-                    viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_cluster, single_color, "cloud_cluster");
-                    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "cloud_cluster");
-                    // viewer->addCoordinateSystem (1.0);
-                    viewer->spinOnce (100);
+                    // viewer->removePointCloud("cloud_cluster");
+                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr tmp_cloud_cluster);
+                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_color (tmp_cloud_cluster, 255, 0, 0);
+                    // viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_cluster, single_color, "cloud_cluster");
+                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "cloud_cluster");
+                    // // viewer->addCoordinateSystem (1.0);
+                    // viewer->spinOnce (100);
                     //////////////////////////////////////////////////////////////////////
 
                     // // viewer.showCloud(tmp_cloud_cluster);
@@ -356,7 +356,7 @@ class pc_process{
             // instance already being tracked and tacklet died, delete the obj
             if (instance_pos_dict.count(obj_indx) && bb.label==-1){
                 cout << "case 1 " << endl;
-                cout << "obj_indx" << obj_indx<< endl;
+                cout << "deads tracklet obj_indx" << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
                 instance_pos_dict.erase(obj_indx);
                 delete inst_pos_ptr;
@@ -376,8 +376,9 @@ class pc_process{
 
             //instance not being tracked yet. 
             else if (!instance_pos_dict.count(obj_indx)){
-                // cout << "case 3" << endl;
-                if (get_points_in_bb(bb)==true){
+                cout << "case 3" << endl;
+                cout << " added new tracket " << obj_indx<< endl; 
+		if (get_points_in_bb(bb)==true){
                     cluster();
                     //get position of the tracklet
                     instance_pos*inst_pos_ptr = get_pos();
@@ -385,7 +386,7 @@ class pc_process{
                 }
             }
         }
-        
+	cout << instance_pos_dict.size() << endl;        
         for (auto const& x : instance_pos_dict)
         {   
             publisher(x.first , x.second);
