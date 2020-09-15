@@ -17,6 +17,9 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 
+// //ROS Packages
+// #include "geometry_msgs/Point.h"
+
 // Cpp packages
 #include<iostream> 
 #include <cstdlib>
@@ -26,6 +29,7 @@
 #include<cmath>
 #include <fstream>
 #include <lidar_process/tracked_obj.h>
+#include <lidar_process/tracked_obj_arr.h>
 
 #include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
@@ -97,7 +101,7 @@ class pc_process{
 
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
-        tracked_obj_pub = n.advertise<lidar_process::tracked_obj> ("tracked_obj_pos", 1);
+        tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
 
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
@@ -275,14 +279,31 @@ class pc_process{
     }
 
 
-    void publisher(int obj_indx , instance_pos*inst_pos_ptr){
-        lidar_process::tracked_obj tracked_obj_msg;
-        tracked_obj_msg.object_id = obj_indx; 
-        tracked_obj_msg.pos_x = inst_pos_ptr ->x;
-        tracked_obj_msg.pos_y = inst_pos_ptr ->y;
-        tracked_obj_msg.pos_z = inst_pos_ptr ->z;
-        tracked_obj_msg.header.stamp = ros::Time::now();
-        tracked_obj_pub.publish(tracked_obj_msg);
+    void publisher(){
+        lidar_process::tracked_obj_arr tracked_objs;
+        for (auto const& x : instance_pos_dict)
+        {           
+            lidar_process::tracked_obj tracked_obj_msg;
+            tracked_obj_msg.object_id = x.first; 
+            tracked_obj_msg.pos_x = x.second ->x;
+            tracked_obj_msg.pos_y = x.second ->y;
+            tracked_obj_msg.pos_z = x.second ->z;
+            tracked_obj_msg.header.stamp = ros::Time::now();
+            tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
+        }
+
+
+
+
+        // lidar_process::tracked_obj tracked_obj_msg;
+        // lidar_process::tracked_obj_arr tracked_objs;
+        // tracked_obj_msg.object_id = obj_indx; 
+        // tracked_obj_msg.pos_x = inst_pos_ptr ->x;
+        // tracked_obj_msg.pos_y = inst_pos_ptr ->y;
+        // tracked_obj_msg.pos_z = inst_pos_ptr ->z;
+        // // tracked_obj_msg.point.x = inst_pos_ptr ->x;
+        // tracked_obj_msg.header.stamp = ros::Time::now();
+        tracked_obj_pub.publish(tracked_objs);
     }
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
@@ -319,7 +340,7 @@ class pc_process{
             else if (!instance_pos_dict.count(obj_indx)){
                 cout << "case 3" << endl;
                 cout << " added new tracket " << obj_indx<< endl; 
-		if (get_points_in_bb(bb)==true){
+		        if (get_points_in_bb(bb)==true){
                     cluster();
                     //get position of the tracklet
                     instance_pos*inst_pos_ptr = get_pos();
@@ -336,11 +357,13 @@ class pc_process{
         
         crop_cloud(point_cloud_msg);
 
-	    cout << instance_pos_dict.size() << endl;        
-        for (auto const& x : instance_pos_dict)
-        {   
-            publisher(x.first , x.second);
-        }
+        publisher();
+        
+	    // cout << instance_pos_dict.size() << endl;        
+        // for (auto const& x : instance_pos_dict)
+        // {   
+        //     publisher(x.first , x.second);
+        // }
 
     }
 

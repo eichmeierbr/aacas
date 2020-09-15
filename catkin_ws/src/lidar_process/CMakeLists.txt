@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   yolov3_sort 
   rviz_visual_tools
   std_msgs
+  geometry_msgs
   message_generation
 )   
 
@@ -26,34 +27,17 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     FILES
     tracked_obj.msg
+    tracked_obj_arr.msg
 )
 
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
    DEPENDENCIES
+   geometry_msgs
    std_msgs
 )
 
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
 
 ###################################
 ## catkin specific configuration ##
@@ -64,10 +48,11 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES lidar_process
-  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp  message_runtime std_msgs
+  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp  message_runtime std_msgs geometry_msgs
 #  DEPENDS system_lib
 )
 
@@ -93,10 +78,6 @@ include_directories(
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-## With catkin_make all packages are built within a single CMake context
-## The recommended prefix ensures that target names across packages don't collide
-## Rename C++ executable without prefix
 add_executable(lidar_process_node src/lidar_process.cpp)
-
 target_link_libraries(lidar_process_node ${catkin_LIBRARIES})
 
