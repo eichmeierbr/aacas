@@ -17,9 +17,6 @@
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 
-// //ROS Packages
-// #include "geometry_msgs/Point.h"
-
 // Cpp packages
 #include<iostream> 
 #include <cstdlib>
@@ -291,18 +288,6 @@ class pc_process{
             tracked_obj_msg.header.stamp = ros::Time::now();
             tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
         }
-
-
-
-
-        // lidar_process::tracked_obj tracked_obj_msg;
-        // lidar_process::tracked_obj_arr tracked_objs;
-        // tracked_obj_msg.object_id = obj_indx; 
-        // tracked_obj_msg.pos_x = inst_pos_ptr ->x;
-        // tracked_obj_msg.pos_y = inst_pos_ptr ->y;
-        // tracked_obj_msg.pos_z = inst_pos_ptr ->z;
-        // // tracked_obj_msg.point.x = inst_pos_ptr ->x;
-        // tracked_obj_msg.header.stamp = ros::Time::now();
         tracked_obj_pub.publish(tracked_objs);
     }
 
@@ -359,12 +344,6 @@ class pc_process{
 
         publisher();
         
-	    // cout << instance_pos_dict.size() << endl;        
-        // for (auto const& x : instance_pos_dict)
-        // {   
-        //     publisher(x.first , x.second);
-        // }
-
     }
 
 
