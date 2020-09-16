@@ -93,7 +93,7 @@ class Tracker():
             bbox_msg.xmax = x + w
             bbox_msg.ymax = y + h
             bbox_msg.label = c
-            bbox_msg.idx = 123
+            bbox_msg.idx = 0
             bboxes.bounding_boxes.append(bbox_msg)"""
 
         for tr in self.tracklets:
@@ -123,29 +123,33 @@ class Tracker():
                 tr.addTimeout()
 
             #if tr.active:
-            (x, y, w, h) = tr.getState()
-            bbox_msg = BoundingBox()
-            bbox_msg.xmin = x
-            bbox_msg.ymin = y
-            bbox_msg.xmax = x + w
-            bbox_msg.ymax = y + h
-            bbox_msg.label = tr.label
-            bbox_msg.idx = tr.idx
+            if True:
+                (x, y, w, h) = tr.getState()
+                bbox_msg = BoundingBox()
+                if tr.timeout > 2:
+                    bbox_msg.label = -1
 
-            if tr.timeout > 10:
-                bbox_msg.xmin = -1
-                self.tracklets.remove(tr)
+                else:
+                    bbox_msg.label = tr.label
+
+                bbox_msg.xmin = x
+                bbox_msg.ymin = y
+                bbox_msg.xmax = x + w
+                bbox_msg.ymax = y + h
+                #bbox_msg.label = tr.label
+                bbox_msg.idx = tr.idx
                 bboxes.bounding_boxes.append(bbox_msg)
-                continue
 
-            bboxes.bounding_boxes.append(bbox_msg)
-            tr.predict()
+                if tr.timeout > 2:
+                    self.tracklets.remove(tr)
 
-        #rospy.loginfo(str(self.object_count))
+                else:
+                    tr.predict()
+                    #tr.addLength()
+                    #rospy.loginfo(str(tr.length))
+
         self.pub.publish(bboxes)
         self.visualize(bboxes, cv_image)
-        #img_msg = self.bridge.cv2_to_imgmsg(cv_image, "rgb8")
-        #self.img_pub.publish(img_msg)
 
         return True
 
@@ -155,24 +159,26 @@ class Tracker():
         fontScale = 0.6
         thickness = 2
 
-        for i in range(len(msg.bounding_boxes)):
-            label = int(msg.bounding_boxes[i].label)
-            x1 = msg.bounding_boxes[i].xmin
-            y1 = msg.bounding_boxes[i].ymin
-            x2 = msg.bounding_boxes[i].xmax
-            y2 = msg.bounding_boxes[i].ymax
-            w, h = x2-x1, y2-y1
-            color = self.colors[msg.bounding_boxes[i].idx]
+        if len(msg.bounding_boxes):
+            for i in range(len(msg.bounding_boxes)):
+                label = int(msg.bounding_boxes[i].label)
+                x1 = msg.bounding_boxes[i].xmin
+                y1 = msg.bounding_boxes[i].ymin
+                x2 = msg.bounding_boxes[i].xmax
+                y2 = msg.bounding_boxes[i].ymax
+                w, h = x2-x1, y2-y1
+                if label != -1:
+                    color = self.colors[msg.bounding_boxes[i].idx]
 
-            cv2.rectangle(img,
-                          (int(x1), int(y1)),
-                          (int(x2), int(y2)),
-                          (color[0], color[1], color[2]), thickness)
+                    cv2.rectangle(img,
+                                  (int(x1), int(y1)),
+                                  (int(x2), int(y2)),
+                                  (color[0], color[1], color[2]), thickness)
 
-            text = self.class_list[label]
-            cv2.putText(img, text,
-                        (int(x1), int(y1)-10),
-                        font, fontScale, (0, 0, 0), thickness, cv2.LINE_AA)
+                    text = self.class_list[label]
+                    cv2.putText(img, text,
+                                (int(x1), int(y1)-10),
+                                font, fontScale, (0, 0, 0), thickness, cv2.LINE_AA)
 
         img_msg = self.bridge.cv2_to_imgmsg(img, "rgb8")
         self.img_pub.publish(img_msg)

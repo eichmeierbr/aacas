@@ -25,6 +25,7 @@ class Tracklet():
     """
     def __init__(self, idx, label, bbox, csrt=False):
         self.idx = idx
+        self.length = 0
         self.label = label
         self.csrt = csrt
 
@@ -106,6 +107,9 @@ class Tracklet():
         Output: None
         """
         self.active = st
+
+    def addLength(self):
+        self.length += 1
 
     def addTimeout(self):
         """
