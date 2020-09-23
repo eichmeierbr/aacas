@@ -1,6 +1,8 @@
 #include <ros/ros.h>
 #include <yolov3_sort/BoundingBox.h>
 #include <yolov3_sort/BoundingBoxes.h>
+#include "geometry_msgs/Point.h"
+
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -27,7 +29,6 @@
 #include <fstream>
 #include <lidar_process/tracked_obj.h>
 #include <lidar_process/tracked_obj_arr.h>
-
 #include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
 
@@ -281,10 +282,12 @@ class pc_process{
         for (auto const& x : instance_pos_dict)
         {           
             lidar_process::tracked_obj tracked_obj_msg;
+            geometry_msgs::Point point;
             tracked_obj_msg.object_id = x.first; 
-            tracked_obj_msg.pos_x = x.second ->x;
-            tracked_obj_msg.pos_y = x.second ->y;
-            tracked_obj_msg.pos_z = x.second ->z;
+            point.x = x.second ->x;
+            point.y = x.second ->y;
+            point.z = x.second ->z;
+            tracked_obj_msg.point = point;
             tracked_obj_msg.header.stamp = ros::Time::now();
             tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
         }
