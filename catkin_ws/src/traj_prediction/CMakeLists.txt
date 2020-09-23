@@ -24,11 +24,11 @@ find_package(catkin REQUIRED COMPONENTS
 
 
 ## Generate messages in the 'msg' folder
-#add_message_files(
-#    FILES
-#    tracked_obj.msg
-#    tracked_obj_arr.msg
-#)
+add_message_files(
+    FILES
+    tracked_obj.msg
+    tracked_obj_arr.msg
+)
 
 
 ## Generate added messages and services with any dependencies listed here
