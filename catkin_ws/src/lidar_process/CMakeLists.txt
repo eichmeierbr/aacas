@@ -52,7 +52,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES lidar_process
-  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp  message_runtime std_msgs geometry_msgs
+  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp  message_runtime std_msgs 
 #  DEPENDS system_lib
 )
 
