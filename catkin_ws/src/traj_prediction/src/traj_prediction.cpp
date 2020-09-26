@@ -23,6 +23,7 @@ struct instance_pos{
 
 class traj_predictor{
     private:
+    unordered_map<int, int> obj_labels;
     unordered_map<int, vector<pair<ros::Time, instance_pos>>>* obj_poses_dict; 
     ros::Subscriber tracked_obj_sub;
     public:
@@ -33,16 +34,12 @@ class traj_predictor{
     }
 
     void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
-        // for ( const auto &x : obj_poses_dict )
-        // {
-        // std::cout << x.second.size()<< std::endl;
-        // } 
-        // cout << "here" << endl;
         for (auto& it : msg.tracked_obj_arr) {
             struct instance_pos obj;
                 obj.x = it.point.x;
                 obj.y = it.point.y;
                 obj.z = it.point.z;
+                // obj_labels.insert({it.object_id, it.object_type})
                 if (!obj_poses_dict->count(it.object_id)){
                     vector<pair<ros::Time, instance_pos>> tmp_vec;
                     tmp_vec.push_back(make_pair(it.header.stamp,obj));
@@ -55,6 +52,8 @@ class traj_predictor{
         return;
     }
 
+
+
 };
 
 void clear_obj_poses_dict(unordered_map<int, vector<pair<ros::Time, instance_pos>>> &obj_poses_dict){
@@ -63,9 +62,15 @@ void clear_obj_poses_dict(unordered_map<int, vector<pair<ros::Time, instance_pos
     for (auto &x : obj_poses_dict )
         {
         for (auto it = begin(x.second); it!= end(x.second); ++it){
-            cout << x.second.size() << endl;
+            cout << it->second.x << endl;
+            // cout << x.second.size() << endl;
+            // if the instance_pos entry is older than max_time_span, delete it
             if ((curr_time - it->first) > max_time_span){
                 x.second.erase(it);
+                //Delete the dictionary entry if the instance_pos vector is empty
+                if (x.second.size() <1){
+                    obj_poses_dict.erase(x.first);
+                }
             }
         } 
         } 
@@ -82,11 +87,6 @@ void clear_obj_poses_dict(unordered_map<int, vector<pair<ros::Time, instance_pos
      ros::Rate loop_rate(10);
     while (ros::ok()){
         clear_obj_poses_dict(obj_poses_dict);
-        // for ( const auto &x : obj_poses_dict )
-        // {
-        // std::cout << x.second.size()<< std::endl;
-        // } 
-        // cout << "blahh" << endl;
         ros::spinOnce();
         loop_rate.sleep();
     }
