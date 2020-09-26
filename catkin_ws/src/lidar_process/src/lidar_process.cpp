@@ -40,8 +40,8 @@ struct instance_pos{
     float z;
     float avg;
     float std;
+    int object_label;
 };
-
 
 unordered_map<int ,instance_pos*> instance_pos_dict;
 
@@ -255,7 +255,7 @@ class pc_process{
 
 
 
-    instance_pos* get_pos(){
+    instance_pos* get_pos(int object_label){
         instance_pos* inst_pos_ptr = new instance_pos();
         float x_avg = 0;
         float y_avg = 0;
@@ -272,7 +272,8 @@ class pc_process{
 
         inst_pos_ptr->x = x_avg;
         inst_pos_ptr->y = y_avg;
-        inst_pos_ptr->z = z_avg; 
+        inst_pos_ptr->z = z_avg;
+        inst_pos_ptr->object_label = object_label;
         return inst_pos_ptr;
     }
 
@@ -289,6 +290,7 @@ class pc_process{
             point.z = x.second ->z;
             tracked_obj_msg.point = point;
             tracked_obj_msg.header.stamp = ros::Time::now();
+            tracked_obj_msg.object_label = x.second -> object_label;
             tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
         }
         tracked_obj_pub.publish(tracked_objs);
@@ -319,7 +321,7 @@ class pc_process{
                 {
                     cluster();
                     //get position of the tracket 
-                    instance_pos*inst_pos_ptr = get_pos();
+                    instance_pos*inst_pos_ptr = get_pos(bb.label);
                     instance_pos_dict[obj_indx] = inst_pos_ptr; 
                 }
             }
@@ -331,7 +333,7 @@ class pc_process{
 		        if (get_points_in_bb(bb)==true){
                     cluster();
                     //get position of the tracklet
-                    instance_pos*inst_pos_ptr = get_pos();
+                    instance_pos*inst_pos_ptr = get_pos(bb.label);
                     instance_pos_dict.insert({obj_indx,inst_pos_ptr});
                 }
             }
