@@ -65,12 +65,17 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  src/alglib
 )
+#FIND_LIBRARY(alglib alglib /home/stefanzhu/Documents/aacas/catkin_ws/src/alglib)
+
+message(${alglib})
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/lidar_process.cpp
-# )
+FILE(GLOB alglibCSources src/alglib/*.cpp)
+add_library(alglib
+  ${alglibCSources}
+)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -79,5 +84,5 @@ include_directories(
 
 ## Declare a C++ executable
 add_executable(traj_prediction_node src/traj_prediction.cpp)
-target_link_libraries(traj_prediction_node ${catkin_LIBRARIES})
+target_link_libraries(traj_prediction_node alglib ${catkin_LIBRARIES})
 
