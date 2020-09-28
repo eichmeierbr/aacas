@@ -21,6 +21,10 @@
 using namespace std;
 
 
+struct prediction_result{
+    Eigen::MatrixXf prediction;
+    ros::Time prediction_time;
+};
 
 struct instance_pos{
     float x;
@@ -51,21 +55,22 @@ class traj_predictor{
         this->obj_poses_dict = obj_poses_dict;
         this-> obj_labels = obj_labels;
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
-        obj_trajectory_pub = n.advertise<lidar_process::tracked_obj_arr> ("obj_pos_pred_arr", 1);
+        obj_trajectory_pub = n.advertise<lidar_process::tracked_obj_arr> ("predicted_obj_pos_arr", 1);
 
     }
 
-    void publisher( Eigen:: MatrixXf prediction, int obj_id){
+    void publisher( prediction_result* pred_result, int obj_id){
         lidar_process::tracked_obj_arr obj_pred_arr_msg;
-        for (int i =0; i < prediction.rows(); i++){
+        for (int i =0; i < pred_result -> prediction.rows(); i++){
             lidar_process::tracked_obj tracked_obj_msg;
             geometry_msgs::Point point;
             tracked_obj_msg.object_id = obj_id; 
-            point.x = prediction(i,0);
-            point.y = prediction(i,1);
-            point.z = prediction(i,2);
+            point.x = pred_result->prediction(i,0);
+            point.y = pred_result->prediction(i,1);
+            point.z = pred_result->prediction(i,2);
             tracked_obj_msg.point = point;
-            tracked_obj_msg.header.stamp.sec=  prediction(i,3);
+            tracked_obj_msg.header.stamp = pred_result->prediction_time;
+            tracked_obj_msg.time_stamp=  pred_result -> prediction(i,3);
             obj_pred_arr_msg.tracked_obj_arr.push_back(tracked_obj_msg);
         }
         obj_trajectory_pub.publish(obj_pred_arr_msg);
@@ -73,11 +78,10 @@ class traj_predictor{
 
     void predict_traj(){
          for (auto &x : *obj_poses_dict){
-            //  poly_predict( 2, x.first);
              // if it's a ball, then simply take the average. 
             if (x.first==0){
-                Eigen:: MatrixXf prediction = poly_predict(pred_poly_order, x.first);
-                publisher(prediction, x.first);
+                prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
+                publisher(pred_result, x.first);
             }
             if ((*obj_labels)[x.first] == 0){
                 // if (x.first==0){
@@ -104,7 +108,7 @@ class traj_predictor{
 
 
     //make prediction using a polynomial function
-    Eigen::MatrixXf poly_predict(int order, int obj_id){
+    prediction_result* poly_predict(int order, int obj_id){
         int col_num = order+1;
         int row_num = (*obj_poses_dict)[obj_id].size();
         Eigen::MatrixXf T(row_num, col_num);
@@ -115,7 +119,7 @@ class traj_predictor{
         Eigen::MatrixXf y_beta(row_num, 1);
         Eigen::MatrixXf z_beta(row_num, 1);
 
-        double curr_time =ros::Time::now().toSec();
+        ros::Time curr_time =ros::Time::now();
         for (int i = 0; i <(*obj_poses_dict)[obj_id].size(); i++){
             X(i) = (*obj_poses_dict)[obj_id][i].second.x;
             Y(i) = (*obj_poses_dict)[obj_id][i].second.y;
@@ -123,7 +127,7 @@ class traj_predictor{
             //constructing a matrix using all the past time stamps of the object
             for (int j=0; j <= order ;j++){
                 double time_stamp = (*obj_poses_dict)[obj_id][i].first.toSec();
-                T(i,j) = pow(time_stamp-curr_time, j);
+                T(i,j) = pow(time_stamp-curr_time.toSec(), j);
             }
         }
 
@@ -152,12 +156,11 @@ class traj_predictor{
         // prediction << future_T * x_beta, future_T * y_beta, future_T * z_beta;
         pred <<  x_pred,  y_pred,  z_pred , T_pred;
 
+        prediction_result*pred_result = new prediction_result();
+        pred_result-> prediction = pred;
+        pred_result->prediction_time = curr_time;
 
-        // cout << future_T.col(1) + curr_time << endl;
-        // cout << "prediction" << endl;
-        // cout << pred << endl;
-        // cout << "" << endl;
-        return pred;
+        return pred_result;
     }
 
 
