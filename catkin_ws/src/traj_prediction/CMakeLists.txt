@@ -5,6 +5,8 @@ project(traj_prediction)
 #add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
+find_package(PkgConfig)
+pkg_search_module(Eigen3 REQUIRED eigen3)
 find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   pcl_ros
@@ -65,9 +67,9 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${Eigen_INCLUDE_DIRS}
   src/alglib
 )
-#FIND_LIBRARY(alglib alglib /home/stefanzhu/Documents/aacas/catkin_ws/src/alglib)
 
 message(${alglib})
 
