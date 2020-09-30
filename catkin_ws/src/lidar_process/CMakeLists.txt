@@ -79,5 +79,6 @@ include_directories(
 
 ## Declare a C++ executable
 add_executable(lidar_process_node src/lidar_process.cpp)
+add_dependencies(lidar_process_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(lidar_process_node ${catkin_LIBRARIES})
 
