@@ -70,37 +70,41 @@ class traj_predictor{
             point.z = pred_result->prediction(i,2);
             tracked_obj_msg.point = point;
             tracked_obj_msg.header.stamp = pred_result->prediction_time;
-            tracked_obj_msg.time_stamp=  pred_result -> prediction(i,3);
+            tracked_obj_msg.time_increment=  pred_result -> prediction(i,3);
             obj_pred_arr_msg.tracked_obj_arr.push_back(tracked_obj_msg);
         }
         obj_trajectory_pub.publish(obj_pred_arr_msg);
+        delete pred_result;
     }
 
     void predict_traj(){
          for (auto &x : *obj_poses_dict){
-             // if it's a ball, then simply take the average. 
-            if (x.first==0){
-                prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
-                publisher(pred_result, x.first);
-            }
-            if ((*obj_labels)[x.first] == 0){
-                // if (x.first==0){
-                //     poly_predict(pred_poly_order, x.first);
-                // }
-                int count = 0;
-                float x_avg =0;
-                float y_avg = 0;
-                float z_avg = 0;
-                for (auto it = begin(x.second); it!= end(x.second); ++it){
-                count ++;
-                x_avg = x_avg*(count-1)/count + it -> second.x/count;
-                y_avg = y_avg*(count-1)/count + it -> second.y/count;
-                z_avg = z_avg*(count-1)/count + it -> second.z/count;
+             //only predict if there are at least 10 past data points
+             if (x.second.size() > 30){
+                if (x.first==0){
+                    prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
+                    publisher(pred_result, x.first);
                 }
-            }
-            else{
-                // poly_predict(pred_poly_order, x.first);
-            }
+                if ((*obj_labels)[x.first] == 0){
+                    // if (x.first==0){
+                    //     poly_predict(pred_poly_order, x.first);
+                    // }
+                    int count = 0;
+                    float x_avg =0;
+                    float y_avg = 0;
+                    float z_avg = 0;
+                    for (auto it = begin(x.second); it!= end(x.second); ++it){
+                    count ++;
+                    x_avg = x_avg*(count-1)/count + it -> second.x/count;
+                    y_avg = y_avg*(count-1)/count + it -> second.y/count;
+                    z_avg = z_avg*(count-1)/count + it -> second.z/count;
+                    }
+                }
+                else{
+                    // poly_predict(pred_poly_order, x.first);
+                }
+
+             }
              
          }
 
@@ -148,6 +152,7 @@ class traj_predictor{
             }
         }
 
+        cout << "here" << endl;
         Eigen::MatrixXf x_pred = future_T * x_beta;
         Eigen::MatrixXf y_pred = future_T * y_beta;
         Eigen::MatrixXf z_pred = future_T * z_beta;

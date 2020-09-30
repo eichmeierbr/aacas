@@ -17,11 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   message_generation
+  nav_msgs
 )   
-
-
-## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
 
 
 
@@ -41,15 +38,7 @@ find_package(catkin REQUIRED COMPONENTS
 #)
 
 
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
+
 
 catkin_package(
 #  INCLUDE_DIRS include
@@ -86,5 +75,7 @@ add_library(alglib
 
 ## Declare a C++ executable
 add_executable(traj_prediction_node src/traj_prediction.cpp)
+add_executable(tf_broadcaster_node src/tf_broadcaster.cpp)
+target_link_libraries(tf_broadcaster_node ${catkin_LIBRARIES})
 target_link_libraries(traj_prediction_node alglib ${catkin_LIBRARIES})
 
