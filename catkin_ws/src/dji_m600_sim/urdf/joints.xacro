@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="m600_pro">
+
+    <xacro:macro name="chassis_box_joint">
+        <joint name="chassis_box_joint" type="fixed">
+            <axis xyz="0 1 0"/>
+            <parent link="base_link"/>
+            <child link="chassis_box_link"/>
+            <origin xyz="0 0 0" />
+        </joint>
+	</xacro:macro>
+
+
+</robot>

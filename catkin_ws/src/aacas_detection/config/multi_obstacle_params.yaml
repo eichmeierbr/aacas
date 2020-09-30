@@ -1,0 +1,41 @@
+query_detections_service: 'query_obstacle_detections'
+true_obstacle_topic: 'obstacle_information'
+
+# Fake Detector Parameters
+object_position_noise: 0.3
+object_velocity_noise: 0.3
+object_detection_rate: 0.9
+object_detection_dist: 10.0
+
+# Obstacle position parameters
+# ob_start_x: [10]
+# ob_start_y: [0.0]
+# ob_start_z: [1.5]
+
+# Triangle position parameters
+ob_start_x: [10, 10, 13]
+ob_start_y: [3.0, -0.5, 1.5]
+ob_start_z: [5.5, 5.5, 5.5]
+
+# # Straight Corridor
+# ob_start_x: [6, 8, 10, 12, 14, 6, 8, 10, 12, 14]
+# ob_start_y: [1.5, 1.5, 1.5, 1.5, 1.5, -1.5, -1.5, -1.5, -1.5, -1.5]
+# ob_start_z: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+# Curved Cooridor
+# ob_start_x: [6, 7, 8, 9, 10, 11, 12, 13, 14, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+# ob_start_y: [1.5, 1.875, 2.25, 2.625, 3, 2.625, 2.25, 1.875, 1.5, -1.5, -1.125, -0.75, -0.375, 0.0, -0.375, -0.75, -1.125, -1.5]
+# ob_start_z: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+
+
+# Obstacle Velocity Parameters
+ob_vel_x: 0
+ob_vel_y: 0
+ob_vel_z: 0
+
+travel_dist: 15
+
+nr_of_obstacles: 1
+
+kickball_radius: 0.127
