@@ -1,11 +1,3 @@
 [submodule "SDK/librealsense"]
 	path = SDK/librealsense
 	url = https://github.com/IntelRealSense/librealsense.git
-[submodule "SDK/Onboard-SDK"]
-        branch = 3.9
-        path = SDK/Onboard-SDK
-	url = https://github.com/dji-sdk/Onboard-SDK
-[submodule "catkin_ws/src/Onboard-SDK-ROS"]
-        branch = 3.8
-        path = catkin_ws/src/Onboard-SDK-ROS
-        url = https://github.com/dji-sdk/Onboard-SDK-ROS

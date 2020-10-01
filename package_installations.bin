@@ -18,4 +18,13 @@ cd ../../..
 
 
 #Velodyn Setup
-sudo apt-get install ros-melodic-velodyne
+sudo apt-get install ros-VERSION-velodyne
+
+# DJI SDK install
+cd SDK/Onboard-SDK
+mkdir build
+cd build
+cmake ..
+make djiosdk-core
+sudo make install
+../../../
