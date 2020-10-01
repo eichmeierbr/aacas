@@ -195,6 +195,7 @@ class vectFieldController:
         return w_d
 
 
+    ## TODO: Need to handle moving obstacles better
     def decideOrbitDirection(self, ob):
         # Note: All directions are assuming the vehicle is looking
         # straight at the goal
@@ -228,7 +229,8 @@ class vectFieldController:
         ob.orbit = self.freq
 
 
-
+    ## TODO: Move find close obstacles to move. Do position control if no obstacles to avoid
+    ## For now: Always do velocity control
     def move(self):
         # Check if we have reached the next waypoint. If so, update
 
@@ -328,7 +330,7 @@ class vectFieldController:
         position = self.pos
         velocity = self.vel
         #
-        #   Safety checking goes here
+        #   TODO: Safety checking goes here
         #
 
 
