@@ -18,6 +18,8 @@ class Objects:
         self.position = pos
         self.velocity = vel
         self.distance = dist
+        self.last_orbit_change_ = rospy.Time.now() - rospy.Duration(secs=1000)
+        self.orbit = -1
   
 
 class vectFieldController:
@@ -125,11 +127,13 @@ class vectFieldController:
         if avoid:
             vels = []
             for obstacle in closeObjects:
-                # if self.change_orbit_wait_ < (rospy.Time.now() - self.last_orbit_change_).to_sec():
-                    # self.decideOrbitDirection(obstacle)
+                if self.change_orbit_wait_ < (rospy.Time.now() - obstacle.last_orbit_change_).to_sec():
+                    self.decideOrbitDirection(obstacle)
+                else:
+                    self.freq = obstacle.orbit
                 # velDes[:3] = self.getOrbit([obstacle.position.x,obstacle.position.y,obstacle.position.z])
 
-                self.decideOrbitDirection(obstacle)
+                # self.decideOrbitDirection(obstacle)
                 vel = self.getOrbit([obstacle.position.x,obstacle.position.y,obstacle.position.z])
                 mod = 1/(obstacle.distance)
                 # mod = np.exp(-1/(3*obstacle.distance))
@@ -218,7 +222,10 @@ class vectFieldController:
                 self.freq = 1       # Orbit CW
             else:                   # If object is to the left
                 self.freq = -1      # Orbit CCW
+
         self.last_orbit_change_ = rospy.Time.now()
+        ob.last_orbit_change_ = self.last_orbit_change_
+        ob.orbit = self.freq
 
 
 
@@ -233,7 +240,7 @@ class vectFieldController:
  
         # Get velocity vector
         velDes = self.getXdes() 
-        rospy.loginfo("Out Vel: X: %.2f, Y: %.2f, Z: %.2f, Yaw: %.2f" %(velDes[0], velDes[1], velDes[2], velDes[3]))
+        # rospy.loginfo("Out Vel: X: %.2f, Y: %.2f, Z: %.2f, Yaw: %.2f" %(velDes[0], velDes[1], velDes[2], velDes[3]))
          
         # Publish Vector
         joy_out = Joy()
