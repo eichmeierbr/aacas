@@ -1,8 +1,0 @@
-prefix=/home/eichmeierbr/cmu/project/aacas_repo/aacas/catkin_ws/install
-
-Name: lidar_process
-Description: Description of lidar_process
-Version: 0.0.0
-Cflags: -I${prefix}/include
-Libs: -L${prefix}/lib 
-Requires: pcl_conversions pcl_ros roscpp message_runtime std_msgs

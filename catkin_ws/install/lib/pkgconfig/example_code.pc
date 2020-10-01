@@ -1,8 +1,0 @@
-prefix=/home/eichmeierbr/cmu/project/aacas_repo/aacas/catkin_ws/install
-
-Name: example_code
-Description: Description of example_code
-Version: 0.0.0
-Cflags: -I${prefix}/include
-Libs: -L${prefix}/lib 
-Requires: roscpp rospy std_msgs

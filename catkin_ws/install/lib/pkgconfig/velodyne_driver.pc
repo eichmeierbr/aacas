@@ -1,8 +1,0 @@
-prefix=/home/eichmeierbr/cmu/project/aacas_repo/aacas/catkin_ws/install
-
-Name: velodyne_driver
-Description: Description of velodyne_driver
-Version: 1.5.2
-Cflags: -I${prefix}/include
-Libs: -L${prefix}/lib -lvelodyne_input
-Requires: diagnostic_updater dynamic_reconfigure nodelet roscpp tf velodyne_msgs
