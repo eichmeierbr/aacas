@@ -52,6 +52,7 @@ class vectFieldController:
         self.yaw_rate = 0
         self.quat = Quaternion()
         self.pos_pt = Point()
+        self.is_safe = True
 
         # Publisher Information
         vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
@@ -316,6 +317,14 @@ class vectFieldController:
             # self.detections = in_detections.detection_array.tracked_obj_arr
 
 
+    def safetyCheck(self):
+        position = self.pos
+        velocity = self.vel
+        #
+        #   Safety checking goes here
+        #
+
+
 if __name__ == '__main__': 
   try:
     rospy.init_node('vectFieldController')
@@ -341,17 +350,28 @@ if __name__ == '__main__':
 
     startTime = rospy.Time.now()
     rate = rospy.Rate(10) # 10hz
-    while (rospy.Time.now() - startTime).to_sec() < 200:
+    while (rospy.Time.now() - startTime).to_sec() < 200 and field.is_safe:
         field.move()
+        field.safetyCheck()
         rate.sleep()
 
-    rospy.loginfo("LAND")
 
-    ########### Takeoff Controll ###############
-    resp1 = field.takeoff_service(6)
-    if field.live_flight:
-        resp1 = field.authority_service(0)
-    ########### Takeoff Controll ###############
+    
+    if field.is_safe: # If the planner exited normally, land
+        rospy.loginfo("LAND")
+    
+        ########### Landing Controll ###############
+        resp1 = field.takeoff_service(6)
+        if field.live_flight:
+            resp1 = field.authority_service(0)
+        ########### Landing Controll ###############
+
+    else: # The planner detected unsafe conditions
+        rospy.logerr("Unsafe condition detected. Hover commanded. Land and relaunch to restart.")
+        ##
+        ## Error protocol goes here
+        ##
+
 
     rospy.spin()
     
