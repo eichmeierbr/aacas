@@ -4,7 +4,5 @@ catkin_ws/devel/
 catkin_ws/build/
 catkin_ws/install/
 catkin_ws/src/yolov3_pytorch_ros/models/*.weights
-SDK/
-SDK/Onboard-SDK/build/
-
-
+SDK/Onboard-SDK/build
+SDK/vcpkg/
