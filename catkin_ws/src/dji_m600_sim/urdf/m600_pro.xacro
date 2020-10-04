@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="m600_pro">
+
+    <xacro:include filename="$(find dji_m600_sim)/urdf/materials.xacro" />
+    <xacro:include filename="$(find dji_m600_sim)/urdf/properties.xacro" />
+    <xacro:include filename="$(find dji_m600_sim)/urdf/links.xacro" />
+    <xacro:include filename="$(find dji_m600_sim)/urdf/gazebo.xacro" />
+
+    <xacro:base_link/>
+
+    <!-- <xacro:imu /> -->
+
+</robot>
