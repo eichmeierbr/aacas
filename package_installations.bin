@@ -22,6 +22,7 @@ sudo apt-get install ros-VERSION-velodyne
 
 # DJI SDK install
 cd SDK/Onboard-SDK
+git checkout 3.9
 mkdir build
 cd build
 cmake ..
