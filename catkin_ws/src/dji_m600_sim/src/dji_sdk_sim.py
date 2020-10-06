@@ -5,7 +5,6 @@ from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, P
 from sensor_msgs.msg import Imu, Joy
 from nav_msgs.msg import Path
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 from dji_m600_sim.srv import SimDroneTaskControl, SimDroneTaskControlResponse
 
 # from PACKAGE_NAME.srv import SERVICE1, SERVICE2, etc
@@ -155,16 +154,22 @@ class DJI_simulator:
   # TODO: Add in smart way to play out the quaternion
   # FOR NOW: Always return orientation straight up
   def getQuat(self):
-    quat = Quaternion()
+    ans = Quaternion()
+    roll = 0.0
+    pitch = 0.0
 
-    r = R.from_euler('xyz', [0, 0, self.yaw_])
-    [x,y,z,w] = r.as_quat()
+    t0 = np.cos(self.yaw_ * 0.5)
+    t1 = np.sin(self.yaw_ * 0.5)
+    t2 = np.cos(roll * 0.5)
+    t3 = np.sin(roll * 0.5)
+    t4 = np.cos(pitch * 0.5)
+    t5 = np.sin(pitch * 0.5)
 
-    quat.x = x
-    quat.y = y
-    quat.z = z
-    quat.w = w
-    return quat
+    ans.w = t2 * t4 * t0 + t3 * t5 * t1
+    ans.x = t3 * t4 * t0 - t2 * t5 * t1
+    ans.y = t2 * t5 * t0 + t3 * t4 * t1
+    ans.z = t2 * t4 * t1 - t3 * t5 * t0
+    return ans
 
 
   def performMotion(self):

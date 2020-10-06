@@ -4,7 +4,6 @@ import rospy
 import numpy as np
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
-from scipy.spatial.transform import Rotation as R
 from dji_m600_sim.srv import SimDroneTaskControl
 from dji_sdk.srv import DroneTaskControl, SDKControlAuthority, SetLocalPosRef
 from aacas_detection.srv import QueryDetections
@@ -109,9 +108,30 @@ class vectFieldController:
     def attitude_callback(self, msg):
         q = msg.quaternion
         self.quat = q
-        r = R.from_quat([q.x, q.y, q.z, q.w])
-        [roll, pitch, yaw] = r.as_euler('xyz')
+
+        qt = [q.w, q.x, q.y, q.z]
+        [yaw, pitch, roll] = self.yaw_pitch_roll(qt)
         self.yaw = yaw
+
+
+    def yaw_pitch_roll(self, q):
+        q0, q1, q2, q3 = q
+        q2sqr = q2 * q2
+        t0 = -2.0 * (q2sqr + q3 * q3) + 1.0
+        t1 = +2.0 * (q1 * q2 + q0 * q3)
+        t2 = -2.0 * (q1 * q3 - q0 * q2)
+        t3 = +2.0 * (q2 * q3 + q0 * q1)
+        t4 = -2.0 * (q1 * q1 + q2sqr) + 1.0
+
+        if t2 > 1.0:        t2 = 1.0
+        if t2 < -1.0:       t2 = -1.0
+
+        pitch = np.arcsin(t2)
+        roll  = np.arctan2(t3, t4)
+        yaw   = np.arctan2(t1, t0)
+
+        return yaw, pitch, roll  
+
 
     ## TODO: Implement in 3D
     ## For Now: 2D Implementation
