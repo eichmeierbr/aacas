@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+
+  <!-- Example Include Configuration File -->
+  <rosparam command="load" file="$(find aacas_motion)/config/live_flight_params.yaml"/>
+  <rosparam command="load" file="$(find aacas_motion)/config/vector_field_planner_params.yaml"/>
+  <rosparam command="load" file="$(find aacas_detection)/config/multi_obstacle_params.yaml"/>
+  <!-- <rosparam command="load" file="$(find aacas_detection)/config/moving_obstacle_params.yaml"/> -->
+
+
+  <include file="$(find dji_m600_sim)/launch/display.launch"></include>
+  <node name="tf_broadcaster" pkg="dji_m600_sim" type="tf_broadcaster" output="screen" />
+  <node name="simulated_detector" pkg="aacas_detection" type="object_detections.py" output="screen" />
+
+
+  <!-- <include file="$(find dji_sdk)/launch/sdk.launch" /> -->
+
+
+  <arg name="move_start_delay" default="5.0" />  
+  <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController_multiObject.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />
+  <!-- <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> -->
+
+
+</launch>
