@@ -25,7 +25,7 @@ from yolov3_sort.msg import BoundingBox, BoundingBoxes
 
 class Tracker():
     def __init__(self):
-        weights_name = rospy.get_param('~weights_name', 'yolov3_v2.pth')
+        weights_name = rospy.get_param('~weights_name')
         self.weights_path = os.path.join(package_path, 'weights', weights_name)
         if not os.path.isfile(self.weights_path):
             raise IOError("weights not found :(")
