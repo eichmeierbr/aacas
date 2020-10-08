@@ -41,7 +41,7 @@ class traj_predictor{
     ros::Subscriber tracked_obj_sub;
     ros::Publisher obj_trajectory_pub;
     // order of the polynomial used for prediction
-    int pred_poly_order= 1;
+    int pred_poly_order;
     //seconds into the future that we want to predict
     int secs_into_future = 2;
     //the number of interpolated time stamps between now and the last future time stamp for prediction
@@ -56,6 +56,7 @@ class traj_predictor{
         ros::NodeHandle n;
         n.getParam("pred_pnt_thresh", pred_pnt_thresh);
         n.getParam("pos_array_time_span", pos_array_time_span);
+        n.getParam("pred_poly_order", pred_poly_order);
         this->obj_poses_dict = obj_poses_dict;
         this-> obj_labels = obj_labels;
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
