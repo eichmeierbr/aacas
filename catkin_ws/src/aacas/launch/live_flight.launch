@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+
+  <!-- Launch parameter files -->
+  <rosparam command="load" file="$(find aacas_motion)/config/live_flight_params.yaml"/>
+  <rosparam command="load" file="$(find aacas_motion)/config/vector_field_planner_params.yaml"/>
+  <rosparam command="load" file="$(find aacas_detection)/config/multi_obstacle_params.yaml"/>
+  <!-- <rosparam command="load" file="$(find aacas_detection)/config/moving_obstacle_params.yaml"/> -->
+
+  <!-- Detection Launch File -->
+  <include file="$(find aacas)/launch/aacas.launch" />
+
+  <!-- DJI Launch File -->
+  <include file="$(find dji_sdk)/launch/sdk.launch" />
+
+
+  <!-- Motion Controller Launch -->
+  <arg name="move_start_delay" default="5.0" />  
+  <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController_multiObject.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />
+
+
+</launch>

@@ -13,12 +13,11 @@
   <node name="simulated_detector" pkg="aacas_detection" type="object_detections.py" output="screen" />
 
 
-  <!-- <include file="$(find dji_sdk)/launch/sdk.launch" /> -->
+  <include file="$(find dji_sdk)/launch/sdk.launch" />
 
 
   <arg name="move_start_delay" default="5.0" />  
   <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController_multiObject.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />
-  <!-- <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> -->
 
 
 </launch>
