@@ -22,22 +22,6 @@ find_package(catkin REQUIRED COMPONENTS
 
 
 
-## Generate messages in the 'msg' folder
-#add_message_files(
-#    FILES
-#    tracked_obj.msg
-#    tracked_obj_arr.msg
-#)
-
-
-## Generate added messages and services with any dependencies listed here
-#generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs
-#   std_msgs
-#)
-
-
 
 
 catkin_package(
@@ -57,16 +41,14 @@ include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
   ${Eigen_INCLUDE_DIRS}
-  src/alglib
 )
 
-message(${alglib})
 
 ## Declare a C++ library
-FILE(GLOB alglibCSources src/alglib/*.cpp)
-add_library(alglib
-  ${alglibCSources}
-)
+# FILE(GLOB alglibCSources src/alglib/*.cpp)
+# add_library(alglib
+#   ${alglibCSources}
+# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -77,5 +59,5 @@ add_library(alglib
 add_executable(traj_prediction_node src/traj_prediction.cpp)
 add_executable(tf_broadcaster_node src/tf_broadcaster.cpp)
 target_link_libraries(tf_broadcaster_node ${catkin_LIBRARIES})
-target_link_libraries(traj_prediction_node alglib ${catkin_LIBRARIES})
+target_link_libraries(traj_prediction_node ${catkin_LIBRARIES})
 

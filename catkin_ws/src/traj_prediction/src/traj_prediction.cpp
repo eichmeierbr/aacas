@@ -13,13 +13,13 @@
 #include <unordered_map>
 #include<cmath>
 #include <fstream>
-// #include <rviz_visual_tools/rviz_visual_tools.h>
 #include "geometry_msgs/Point.h"
 #include "Eigen/Dense"
 
 
 using namespace std;
 
+int pos_array_time_span; 
 
 struct prediction_result{
     Eigen::MatrixXf prediction;
@@ -41,17 +41,21 @@ class traj_predictor{
     ros::Subscriber tracked_obj_sub;
     ros::Publisher obj_trajectory_pub;
     // order of the polynomial used for prediction
-    int pred_poly_order= 2;
+    int pred_poly_order= 1;
     //seconds into the future that we want to predict
     int secs_into_future = 2;
     //the number of interpolated time stamps between now and the last future time stamp for prediction
     int interlopated_pnts =4;
+    // the number of position points availabel before the trajectory prediction is activated 
+    int pred_pnt_thresh; 
 
     public:
     traj_predictor(unordered_map<int, vector<pair<ros::Time, instance_pos>>>* obj_poses_dict,
     unordered_map<int, int> *obj_labels){
 
         ros::NodeHandle n;
+        n.getParam("pred_pnt_thresh", pred_pnt_thresh);
+        n.getParam("pos_array_time_span", pos_array_time_span);
         this->obj_poses_dict = obj_poses_dict;
         this-> obj_labels = obj_labels;
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
@@ -79,30 +83,25 @@ class traj_predictor{
 
     void predict_traj(){
          for (auto &x : *obj_poses_dict){
-             //only predict if there are at least 10 past data points
-             if (x.second.size() > 30){
-                if (x.first==0){
+             //only predict if there are at least 40 past data points
+             if (x.second.size() > pred_pnt_thresh){
                     prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
                     publisher(pred_result, x.first);
-                }
-                if ((*obj_labels)[x.first] == 0){
-                    // if (x.first==0){
-                    //     poly_predict(pred_poly_order, x.first);
-                    // }
-                    int count = 0;
-                    float x_avg =0;
-                    float y_avg = 0;
-                    float z_avg = 0;
-                    for (auto it = begin(x.second); it!= end(x.second); ++it){
-                    count ++;
-                    x_avg = x_avg*(count-1)/count + it -> second.x/count;
-                    y_avg = y_avg*(count-1)/count + it -> second.y/count;
-                    z_avg = z_avg*(count-1)/count + it -> second.z/count;
-                    }
-                }
-                else{
-                    // poly_predict(pred_poly_order, x.first);
-                }
+                // if ((*obj_labels)[x.first] == 0){
+                //     // if (x.first==0){
+                //     //     poly_predict(pred_poly_order, x.first);
+                //     // }
+                //     int count = 0;
+                //     float x_avg =0;
+                //     float y_avg = 0;
+                //     float z_avg = 0;
+                //     for (auto it = begin(x.second); it!= end(x.second); ++it){
+                //     count ++;
+                //     x_avg = x_avg*(count-1)/count + it -> second.x/count;
+                //     y_avg = y_avg*(count-1)/count + it -> second.y/count;
+                //     z_avg = z_avg*(count-1)/count + it -> second.z/count;
+                //     }
+                // }
 
              }
              
@@ -152,13 +151,11 @@ class traj_predictor{
             }
         }
 
-        cout << "here" << endl;
         Eigen::MatrixXf x_pred = future_T * x_beta;
         Eigen::MatrixXf y_pred = future_T * y_beta;
         Eigen::MatrixXf z_pred = future_T * z_beta;
 
         Eigen::MatrixXf pred(x_pred.rows(), x_pred.cols() + y_pred.cols() + z_pred.cols()+T_pred.cols());
-        // prediction << future_T * x_beta, future_T * y_beta, future_T * z_beta;
         pred <<  x_pred,  y_pred,  z_pred , T_pred;
 
         prediction_result*pred_result = new prediction_result();
@@ -176,13 +173,6 @@ class traj_predictor{
                 obj.y = it.point.y;
                 obj.z = it.point.z;
                 obj_labels->insert({it.object_id, it.object_label});
-
-                ////for debugging 
-                if (it.object_id == 0){
-                    cout << "actual y position" << endl;
-                    cout << obj.y << endl;
-                }
-                ////////////////////
 
                 if (!obj_poses_dict->count(it.object_id)){
                     vector<pair<ros::Time, instance_pos>> tmp_vec;
@@ -204,7 +194,8 @@ class traj_predictor{
 void clear_obj_poses_dict(unordered_map<int, vector<pair<ros::Time, instance_pos>>> &obj_poses_dict,
 unordered_map<int, int> &obj_labels){
     ros::Time curr_time = ros::Time::now();
-    ros::Duration max_time_span(10);
+    // Keeping the recent 5 seconds worth of data
+    ros::Duration max_time_span(pos_array_time_span);
     vector<int> dead_keys; 
     for (auto &x : obj_poses_dict )
         {
@@ -212,8 +203,6 @@ unordered_map<int, int> &obj_labels){
         // cout << "size" << x.second.size() << endl;
         // cout << "    " << endl;
         for (auto it = begin(x.second); it!= end(x.second);){
-            // cout << it->second.x << endl;
-            // cout << x.second.size() << endl;
             // if the instance_pos entry is older than max_time_span, delete it
             if ((curr_time - it->first) > max_time_span){
                 x.second.erase(it);
