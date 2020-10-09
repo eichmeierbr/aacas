@@ -355,8 +355,11 @@ if __name__ == '__main__':
 
     # Launch Node
     field = vectFieldController()
-    field.waypoints  = np.array([rospy.get_param('waypoint_1'), 
-                                 rospy.get_param('waypoint_2')])
+    
+    x_waypoint = rospy.get_param('waypoint_x')
+    y_waypoint = rospy.get_param('waypoint_y')
+    z_waypoint = rospy.get_param('waypoint_z')
+    field.waypoints = np.transpose(np.array([x_waypoint, y_waypoint, z_waypoint]))
     field.goal = field.waypoints[0] 
 
     rospy.sleep(2)
