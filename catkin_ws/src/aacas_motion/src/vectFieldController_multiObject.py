@@ -19,6 +19,7 @@ class Objects:
         self.distance = dist
         self.last_orbit_change_ = rospy.Time.now() - rospy.Duration(secs=1000)
         self.orbit = -1
+
   
 
 class vectFieldController:
@@ -54,6 +55,10 @@ class vectFieldController:
         self.quat = Quaternion()
         self.pos_pt = Point()
         self.is_safe = True
+
+        # safety check constraints
+        self.x_constraint = rospy.get_param('x_constraint')
+        self.y_constraint = rospy.get_param('y_constraint')
 
         # Publisher Information
         vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
@@ -347,12 +352,38 @@ class vectFieldController:
 
 
     def safetyCheck(self):
+        # Check if position and velocity violates safety constraints.
+        # Position constraints are set in vector_field_planner_params.yaml
+        # x_constraint: [xmin, xmax]
+        # y_constraint: [ymin, ymax]
+        # Velocity constraint is self.v_max (norm of all directions).
+
         position = self.pos
         velocity = self.vel
-        #
-        #   TODO: Safety checking goes here
-        #
-        field.is_safe = True
+        #print(np.sum(velocity ** 2))
+        if self.x_constraint[0] <= position[0] <= self.x_constraint[1] and \
+            self.y_constraint[0] <= position[1] <= self.y_constraint[1] and \
+            np.sum(velocity ** 2) <= self.v_max ** 2:
+            field.is_safe = True
+        else:
+            field.is_safe = False
+
+    def hoverInPlace(self):
+        # Safety hovering
+        # Publish Vector, stay in place
+        joy_out = Joy()
+        joy_out.header.stamp = rospy.Time.now()
+        joy_out.axes = [0.0, 0.0, 0.0, 0.0]
+        self.vel_ctrl_pub_.publish(joy_out)
+        rospy.sleep(10)
+
+    def rush(self):
+        # Safety violation test, rush in x direction
+        # Publish Vector
+        joy_out = Joy()
+        joy_out.header.stamp = rospy.Time.now()
+        joy_out.axes = [self.v_max * 1.5, 0., 0., 0.]
+        self.vel_ctrl_pub_.publish(joy_out)
 
 
 if __name__ == '__main__': 
@@ -385,10 +416,9 @@ if __name__ == '__main__':
     rate = rospy.Rate(10) # 10hz
     while (rospy.Time.now() - startTime).to_sec() < 200 and field.is_safe:
         field.move()
+        #field.rush()
         field.safetyCheck()
         rate.sleep()
-
-
     
     if field.is_safe: # If the planner exited normally, land
         rospy.loginfo("LAND")
@@ -400,9 +430,12 @@ if __name__ == '__main__':
         ########### Landing Controll ###############
 
     else: # The planner detected unsafe conditions
-        rospy.logerr("Unsafe condition detected. Hover commanded. Land and relaunch to restart.")
+        rospy.logerr("Unsafe condition detected. Hover for ten seconds.")
         ##
         ## Error protocol goes here
+        field.hoverInPlace()
+        rospy.logerr("Unsafe condition detected. Land and relaunch to restart.")
+        resp1 = field.takeoff_service(6)
         ##
 
 

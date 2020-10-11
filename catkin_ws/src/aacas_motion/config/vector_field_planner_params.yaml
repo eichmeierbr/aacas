@@ -15,3 +15,7 @@ orbit_change_wait:        4
 
 # Go to Goal Parameters
 g2g_sigma:                1.5
+
+# Safety Parameters
+x_constraint: [0.0, 20.0]
+y_constraint: [-10.0, 10.0]
