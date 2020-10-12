@@ -363,7 +363,7 @@ class vectFieldController:
         #print(np.sum(velocity ** 2))
         if self.x_constraint[0] <= position[0] <= self.x_constraint[1] and \
             self.y_constraint[0] <= position[1] <= self.y_constraint[1] and \
-            np.sum(velocity ** 2) <= self.v_max ** 2:
+            np.sum(velocity ** 2) <= self.v_max ** 2+0.5:
             field.is_safe = True
         else:
             field.is_safe = False
@@ -375,7 +375,7 @@ class vectFieldController:
         joy_out.header.stamp = rospy.Time.now()
         joy_out.axes = [0.0, 0.0, 0.0, 0.0]
         self.vel_ctrl_pub_.publish(joy_out)
-        rospy.sleep(10)
+        
 
     def rush(self):
         # Safety violation test, rush in x direction
@@ -415,8 +415,11 @@ if __name__ == '__main__':
     startTime = rospy.Time.now()
     rate = rospy.Rate(10) # 10hz
     while (rospy.Time.now() - startTime).to_sec() < 200 and field.is_safe:
+        # if ((rospy.Time.now() - startTime).to_sec() >50): 
+            # field.rush()
+        # else: field.move()
         field.move()
-        #field.rush()
+
         field.safetyCheck()
         rate.sleep()
     
@@ -434,6 +437,7 @@ if __name__ == '__main__':
         ##
         ## Error protocol goes here
         field.hoverInPlace()
+        rospy.sleep(10)
         rospy.logerr("Unsafe condition detected. Land and relaunch to restart.")
         resp1 = field.takeoff_service(6)
         ##
