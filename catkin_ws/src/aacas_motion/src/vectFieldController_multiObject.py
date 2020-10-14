@@ -59,6 +59,7 @@ class vectFieldController:
         # safety check constraints
         self.x_constraint = rospy.get_param('x_constraint')
         self.y_constraint = rospy.get_param('y_constraint')
+        self.is_ready = False # Before reaching 1st waypoint
 
         # Publisher Information
         vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
@@ -205,6 +206,7 @@ class vectFieldController:
         dist_to_goal = np.linalg.norm(self.pos-self.goal)
 
         if(dist_to_goal < self.switch_dist):
+            self.is_ready = True #set true after reaching 1st waypoint and allow z velocity safety checks.
             self.goalPt += 1
             if(self.goalPt > len(self.waypoints)-1):
                 self.goalPt = 0
@@ -359,11 +361,16 @@ class vectFieldController:
         # Velocity constraint is self.v_max (norm of all directions).
 
         position = self.pos
-        velocity = self.vel
+
+        if self.is_ready: # finished taking off, aiming for waypoints, then we take z velocity into account.
+            velocity = np.sum(self.vel ** 2)
+        else: # if still in takeoff progress, ignore z velocity.
+            velocity = np.sum(self.vel[:2] ** 2)
+
         #print(np.sum(velocity ** 2))
         if self.x_constraint[0] <= position[0] <= self.x_constraint[1] and \
             self.y_constraint[0] <= position[1] <= self.y_constraint[1] and \
-            np.sum(velocity ** 2) <= self.v_max ** 2+0.5:
+            velocity <= self.v_max ** 2+0.5:
             field.is_safe = True
         else:
             field.is_safe = False
