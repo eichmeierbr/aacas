@@ -13,9 +13,9 @@ object_detection_dist: 10.0
 # ob_start_z: [1.5]
 
 # Triangle position parameters
-ob_start_x: [10, 10, 13]
-ob_start_y: [3.0, -0.5, 1.5]
-ob_start_z: [5.5, 5.5, 5.5]
+ob_start_x: [-3.0, 0.5, -1.5]
+ob_start_y: [10.0, 10.0, 13.0]
+ob_start_z: [2.5, 2.5, 2.5]
 
 # # Straight Corridor
 # ob_start_x: [6, 8, 10, 12, 14, 6, 8, 10, 12, 14]

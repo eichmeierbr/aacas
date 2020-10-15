@@ -3,9 +3,9 @@ switch_waypoint_distance: 1
 maximum_velocity:         2
 safe_distance:            5
 
-waypoint_x: [0.0, 20.0]
-waypoint_y: [0.0, 0.0]
-waypoint_z: [5.0, 5.0]
+waypoint_x: [0.0, 0.0]
+waypoint_y: [0.0, 20.0]
+waypoint_z: [2.0, 2.0]
 
 # Orbit Parameters
 orbit_freq:               -1
@@ -17,5 +17,5 @@ orbit_change_wait:        4
 g2g_sigma:                1.5
 
 # Safety Parameters
-x_constraint: [-5.0, 25.0]
-y_constraint: [-15.0, 15.0]
+x_constraint: [-15.0, 15.0]
+y_constraint: [-5.0, 25.0]

@@ -370,7 +370,7 @@ class vectFieldController:
         #print(np.sum(velocity ** 2))
         if self.x_constraint[0] <= position[0] <= self.x_constraint[1] and \
             self.y_constraint[0] <= position[1] <= self.y_constraint[1] and \
-            velocity <= self.v_max ** 2+0.5:
+            velocity <= self.v_max**2 + 1.0:
             field.is_safe = True
         else:
             field.is_safe = False
@@ -417,7 +417,7 @@ if __name__ == '__main__':
     resp1 = field.takeoff_service(4)
     ########### Takeoff Controll ###############
 
-    rospy.sleep(10)
+    rospy.sleep(5)
 
     startTime = rospy.Time.now()
     rate = rospy.Rate(10) # 10hz
@@ -435,8 +435,6 @@ if __name__ == '__main__':
     
         ########### Landing Controll ###############
         resp1 = field.takeoff_service(6)
-        if field.live_flight:
-            resp1 = field.authority_service(0)
         ########### Landing Controll ###############
 
     else: # The planner detected unsafe conditions
@@ -448,6 +446,9 @@ if __name__ == '__main__':
         rospy.logerr("Unsafe condition detected. Land and relaunch to restart.")
         resp1 = field.takeoff_service(6)
         ##
+
+    if field.live_flight:
+        resp1 = field.authority_service(0)
 
 
     rospy.spin()
