@@ -16,7 +16,7 @@
   <include file="$(find dji_sdk)/launch/sdk.launch" />
 
 
-  <arg name="move_start_delay" default="5.0" />  
+  <arg name="move_start_delay" default="10.0" />  
   <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController_multiObject.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />
 
 

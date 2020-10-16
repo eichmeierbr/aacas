@@ -29,3 +29,9 @@ cmake ..
 make djiosdk-core
 sudo make install
 ../../../
+
+cd catkin_ws/src
+git clone https://github.com/dji-sdk/Onboard-SDK-ROS.git
+cd Onboard-SDK-ROS
+git checkout 3.8
+cd ../../..

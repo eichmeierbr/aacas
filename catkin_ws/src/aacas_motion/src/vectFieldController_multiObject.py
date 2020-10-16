@@ -19,6 +19,7 @@ class Objects:
         self.distance = dist
         self.last_orbit_change_ = rospy.Time.now() - rospy.Duration(secs=1000)
         self.orbit = -1
+
   
 
 class vectFieldController:
@@ -54,6 +55,11 @@ class vectFieldController:
         self.quat = Quaternion()
         self.pos_pt = Point()
         self.is_safe = True
+
+        # safety check constraints
+        self.x_constraint = rospy.get_param('x_constraint')
+        self.y_constraint = rospy.get_param('y_constraint')
+        self.is_ready = False # Before reaching 1st waypoint
 
         # Publisher Information
         vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
@@ -200,6 +206,7 @@ class vectFieldController:
         dist_to_goal = np.linalg.norm(self.pos-self.goal)
 
         if(dist_to_goal < self.switch_dist):
+            self.is_ready = True #set true after reaching 1st waypoint and allow z velocity safety checks.
             self.goalPt += 1
             if(self.goalPt > len(self.waypoints)-1):
                 self.goalPt = 0
@@ -347,11 +354,43 @@ class vectFieldController:
 
 
     def safetyCheck(self):
+        # Check if position and velocity violates safety constraints.
+        # Position constraints are set in vector_field_planner_params.yaml
+        # x_constraint: [xmin, xmax]
+        # y_constraint: [ymin, ymax]
+        # Velocity constraint is self.v_max (norm of all directions).
+
         position = self.pos
-        velocity = self.vel
-        #
-        #   TODO: Safety checking goes here
-        #
+
+        if self.is_ready: # finished taking off, aiming for waypoints, then we take z velocity into account.
+            velocity = np.sum(self.vel ** 2)
+        else: # if still in takeoff progress, ignore z velocity.
+            velocity = np.sum(self.vel[:2] ** 2)
+
+        #print(np.sum(velocity ** 2))
+        if self.x_constraint[0] <= position[0] <= self.x_constraint[1] and \
+            self.y_constraint[0] <= position[1] <= self.y_constraint[1] and \
+            velocity <= self.v_max**2 + 1.0:
+            field.is_safe = True
+        else:
+            field.is_safe = False
+
+    def hoverInPlace(self):
+        # Safety hovering
+        # Publish Vector, stay in place
+        joy_out = Joy()
+        joy_out.header.stamp = rospy.Time.now()
+        joy_out.axes = [0.0, 0.0, 0.0, 0.0]
+        self.vel_ctrl_pub_.publish(joy_out)
+        
+
+    def rush(self):
+        # Safety violation test, rush in x direction
+        # Publish Vector
+        joy_out = Joy()
+        joy_out.header.stamp = rospy.Time.now()
+        joy_out.axes = [self.v_max * 1.5, 0., 0., 0.]
+        self.vel_ctrl_pub_.publish(joy_out)
 
 
 if __name__ == '__main__': 
@@ -360,8 +399,11 @@ if __name__ == '__main__':
 
     # Launch Node
     field = vectFieldController()
-    field.waypoints  = np.array([rospy.get_param('waypoint_1'), 
-                                 rospy.get_param('waypoint_2')])
+
+    x_waypoint = rospy.get_param('waypoint_x')
+    y_waypoint = rospy.get_param('waypoint_y')
+    z_waypoint = rospy.get_param('waypoint_z')
+    field.waypoints = np.transpose(np.array([x_waypoint, y_waypoint, z_waypoint]))
     field.goal = field.waypoints[0] 
 
     rospy.sleep(2)
@@ -375,31 +417,38 @@ if __name__ == '__main__':
     resp1 = field.takeoff_service(4)
     ########### Takeoff Controll ###############
 
-    rospy.sleep(10)
+    rospy.sleep(5)
 
     startTime = rospy.Time.now()
     rate = rospy.Rate(10) # 10hz
     while (rospy.Time.now() - startTime).to_sec() < 200 and field.is_safe:
+        # if ((rospy.Time.now() - startTime).to_sec() >50): 
+            # field.rush()
+        # else: field.move()
         field.move()
+
         field.safetyCheck()
         rate.sleep()
-
-
     
     if field.is_safe: # If the planner exited normally, land
         rospy.loginfo("LAND")
     
         ########### Landing Controll ###############
         resp1 = field.takeoff_service(6)
-        if field.live_flight:
-            resp1 = field.authority_service(0)
         ########### Landing Controll ###############
 
     else: # The planner detected unsafe conditions
-        rospy.logerr("Unsafe condition detected. Hover commanded. Land and relaunch to restart.")
+        rospy.logerr("Unsafe condition detected. Hover for ten seconds.")
         ##
         ## Error protocol goes here
+        field.hoverInPlace()
+        rospy.sleep(10)
+        rospy.logerr("Unsafe condition detected. Land and relaunch to restart.")
+        resp1 = field.takeoff_service(6)
         ##
+
+    if field.live_flight:
+        resp1 = field.authority_service(0)
 
 
     rospy.spin()

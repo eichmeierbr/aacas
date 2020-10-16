@@ -92,7 +92,7 @@ class Objects:
   def convertToDetectionMessage(self, orig_pos = [0,0,0]):
     dist = np.linalg.norm(orig_pos - np.array([self.pos[0], self.pos[1], self.pos[2]]))
 
-    travel_dist = 15.0
+    travel_dist = 50.0
     dy = rospy.get_param('ob_vel_y')
     dx = rospy.get_param('ob_vel_x')
     nowTime = rospy.Time.now().to_sec()
