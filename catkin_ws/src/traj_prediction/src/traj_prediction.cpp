@@ -50,6 +50,8 @@ class traj_predictor{
     int pred_pnt_thresh; 
 
     public:
+    ros::Time curr_time;
+
     traj_predictor(unordered_map<int, vector<pair<ros::Time, instance_pos>>>* obj_poses_dict,
     unordered_map<int, int> *obj_labels){
 
@@ -122,8 +124,8 @@ class traj_predictor{
         Eigen::MatrixXf x_beta(row_num, 1);
         Eigen::MatrixXf y_beta(row_num, 1);
         Eigen::MatrixXf z_beta(row_num, 1);
-
-        ros::Time curr_time =ros::Time::now();
+        ros::Time prediction_time =(*obj_poses_dict)[obj_id].back().first;
+        // ros::Time prediction_time =ros::Time::now();
         for (int i = 0; i <(*obj_poses_dict)[obj_id].size(); i++){
             X(i) = (*obj_poses_dict)[obj_id][i].second.x;
             Y(i) = (*obj_poses_dict)[obj_id][i].second.y;
@@ -131,7 +133,7 @@ class traj_predictor{
             //constructing a matrix using all the past time stamps of the object
             for (int j=0; j <= order ;j++){
                 double time_stamp = (*obj_poses_dict)[obj_id][i].first.toSec();
-                T(i,j) = pow(time_stamp-curr_time.toSec(), j);
+                T(i,j) = pow(time_stamp-prediction_time.toSec(), j);
             }
         }
 
@@ -161,7 +163,7 @@ class traj_predictor{
 
         prediction_result*pred_result = new prediction_result();
         pred_result-> prediction = pred;
-        pred_result->prediction_time = curr_time;
+        pred_result->prediction_time = prediction_time;
 
         return pred_result;
     }
@@ -174,7 +176,7 @@ class traj_predictor{
                 obj.y = it.point.y;
                 obj.z = it.point.z;
                 obj_labels->insert({it.object_id, it.object_label});
-
+                this->curr_time = it.header.stamp;
                 if (!obj_poses_dict->count(it.object_id)){
                     vector<pair<ros::Time, instance_pos>> tmp_vec;
                     tmp_vec.push_back(make_pair(it.header.stamp,obj));
@@ -186,15 +188,12 @@ class traj_predictor{
         }
         return;
     }
-
-
-
 };
 
 
 void clear_obj_poses_dict(unordered_map<int, vector<pair<ros::Time, instance_pos>>> &obj_poses_dict,
-unordered_map<int, int> &obj_labels){
-    ros::Time curr_time = ros::Time::now();
+unordered_map<int, int> &obj_labels, traj_predictor* traj_predictor){
+    // ros::Time curr_time = ros::Time::now();
     // Keeping the recent 5 seconds worth of data
     ros::Duration max_time_span(pos_array_time_span);
     vector<int> dead_keys; 
@@ -205,7 +204,7 @@ unordered_map<int, int> &obj_labels){
         // cout << "    " << endl;
         for (auto it = begin(x.second); it!= end(x.second);){
             // if the instance_pos entry is older than max_time_span, delete it
-            if ((curr_time - it->first) > max_time_span){
+            if ((traj_predictor->curr_time - it->first) > max_time_span){
                 x.second.erase(it);
                 // Delete the dictionary entry if the instance_pos vector is empty
                 if (x.second.size() < 1){
@@ -234,9 +233,9 @@ unordered_map<int, int> &obj_labels){
     unordered_map<int, int> obj_labels;
     ros::init (argc, argv, "lidar_process_node");
     traj_predictor traj_predictor(&obj_poses_dict, &obj_labels); 
-    ros::Rate loop_rate(10);
+    ros::Rate loop_rate(20);
     while (ros::ok()){
-        clear_obj_poses_dict(obj_poses_dict, obj_labels);
+        clear_obj_poses_dict(obj_poses_dict, obj_labels, &traj_predictor);
         traj_predictor.predict_traj();
         ros::spinOnce();
         loop_rate.sleep();
