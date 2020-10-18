@@ -2,6 +2,8 @@
 #include <yolov3_sort/BoundingBox.h>
 #include <yolov3_sort/BoundingBoxes.h>
 #include "geometry_msgs/Point.h"
+#include "geometry_msgs/QuaternionStamped.h"
+#include "geometry_msgs/PointStamped.h"
 
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
@@ -59,6 +61,8 @@ class pc_process{
 
     ros::Subscriber cloud_sub;
     ros::Subscriber bb_sub;
+    ros::Subscriber drone_pos_sub;
+    ros::Subscriber drone_orient_sub;
     ros::Publisher tracked_obj_pub;
 
     // Input Cloud
@@ -72,7 +76,8 @@ class pc_process{
     // 3D point of the clustered cloud in bb
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster;
     
-    
+    //lidar frame to global frame transformation
+    Eigen::Matrix4d Trans = Eigen::MatrixXd::Identity(4, 4);
     
     Eigen:: MatrixXf intrinsics;
     Eigen:: MatrixXf extrinsics; 
@@ -97,6 +102,8 @@ class pc_process{
         n.getParam("tz", tz);
         n.getParam("buffer", buffer);
 
+        drone_pos_sub = n.subscribe("/dji_sdk/local_position", 10, &pc_process::drone_pos_cb,this);
+        drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &pc_process::drone_orient_cb,this);
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
@@ -277,17 +284,34 @@ class pc_process{
         return inst_pos_ptr;
     }
 
+    geometry_msgs::Point apply_trans(instance_pos* poses){
+        Eigen::MatrixXd obj_pose_lidar_frame(4, 1);
+        Eigen::MatrixXd obj_pose_global_frame(4, 1);
+        // Eigen::MatrixXf obj_pose_lidar_frame(4, 1);
+        obj_pose_lidar_frame << poses-> x , poses->y, poses->z ,1;
+        obj_pose_global_frame = Trans * obj_pose_lidar_frame;
+        geometry_msgs::Point point;
+        point.x = obj_pose_global_frame(0);
+        point.y = obj_pose_global_frame(1);
+        point.z = obj_pose_global_frame(2);
+
+        cout << point.x << endl;
+        cout << point.y << endl;
+        cout << point.z << endl;
+        return point;
+    }
 
     void publisher(){
         lidar_process::tracked_obj_arr tracked_objs;
         for (auto const& x : instance_pos_dict)
         {           
             lidar_process::tracked_obj tracked_obj_msg;
-            geometry_msgs::Point point;
-            tracked_obj_msg.object_id = x.first; 
-            point.x = x.second ->x;
-            point.y = x.second ->y;
-            point.z = x.second ->z;
+            // geometry_msgs::Point point;
+            // tracked_obj_msg.object_id = x.first; 
+            // point.x = x.second ->x;
+            // point.y = x.second ->y;
+            // point.z = x.second ->z;
+            geometry_msgs::Point point = apply_trans(x.second);
             tracked_obj_msg.point = point;
             tracked_obj_msg.header.stamp = ros::Time::now();
             tracked_obj_msg.object_label = x.second -> object_label;
@@ -349,6 +373,25 @@ class pc_process{
 
         publisher();
         
+    }
+
+    void drone_orient_cb(const::geometry_msgs::QuaternionStamped msg){
+        Eigen::Quaterniond q;
+        q.x() = msg.quaternion.x; 
+        q.y() = msg.quaternion.y; 
+        q.z() = msg.quaternion.z; 
+        q.w() = msg.quaternion.w; 
+        
+        Trans.block<3,3>(0,0) =  q.normalized().toRotationMatrix();
+        // cout << " blah " << endl;
+        // cout<<msg.quaternion.x << endl;
+
+    }
+
+    void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
+        Eigen::Vector3d T;
+        T << msg.point.x , msg.point.y, msg.point.z;
+        Trans.block<3,1>(0,3) = T;
     }
 
 

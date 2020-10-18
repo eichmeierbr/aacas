@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include<cmath>
 #include <fstream>
+#include "geometry_msgs/QuaternionStamped.h"
+#include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/Point.h"
 #include "Eigen/Dense"
 
@@ -39,6 +41,8 @@ class traj_predictor{
     //key: object_id
     unordered_map<int, vector<pair<ros::Time, instance_pos>>>* obj_poses_dict; 
     ros::Subscriber tracked_obj_sub;
+    // ros::Subscriber drone_pos_sub;
+    // ros::Subscriber drone_orient_sub;
     ros::Publisher obj_trajectory_pub;
     // order of the polynomial used for prediction
     int pred_poly_order;
@@ -48,6 +52,8 @@ class traj_predictor{
     int interlopated_pnts =4;
     // the number of position points availabel before the trajectory prediction is activated 
     int pred_pnt_thresh; 
+    //lidar frame to global frame transformation
+    // Eigen::Matrix4d Trans = Eigen::MatrixXd::Identity(4, 4);
 
     public:
     ros::Time curr_time;
@@ -61,6 +67,8 @@ class traj_predictor{
         n.getParam("pred_poly_order", pred_poly_order);
         this->obj_poses_dict = obj_poses_dict;
         this-> obj_labels = obj_labels;
+        // drone_pos_sub = n.subscribe("/dji_sdk/local_position", 10, &traj_predictor::drone_pos_cb,this);
+        // drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &traj_predictor::drone_orient_cb,this);
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
         obj_trajectory_pub = n.advertise<lidar_process::tracked_obj_arr> ("predicted_obj_pos_arr", 1);
 
@@ -168,8 +176,7 @@ class traj_predictor{
         return pred_result;
     }
 
-
-    void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
+ void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
         for (auto& it : msg.tracked_obj_arr) {
             struct instance_pos obj;
                 obj.x = it.point.x;
@@ -188,6 +195,27 @@ class traj_predictor{
         }
         return;
     }
+    
+    // void drone_orient_cb(const::geometry_msgs::QuaternionStamped msg){
+    //     Eigen::Quaterniond q;
+    //     q.x() = msg.quaternion.x; 
+    //     q.y() = msg.quaternion.y; 
+    //     q.z() = msg.quaternion.z; 
+    //     q.w() = msg.quaternion.w; 
+        
+    //     Trans.block<3,3>(0,0) =  q.normalized().toRotationMatrix();
+    //     // cout << " blah " << endl;
+    //     // cout<<msg.quaternion.x << endl;
+
+    // }
+
+    // void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
+    //     Eigen::Vector3d T;
+    //     T << msg.point.x , msg.point.y, msg.point.z;
+    //     Trans.block<3,1>(0,3) = T;
+    //     cout << Trans<< endl;
+    //     cout << "" << endl;
+    // }
 };
 
 
