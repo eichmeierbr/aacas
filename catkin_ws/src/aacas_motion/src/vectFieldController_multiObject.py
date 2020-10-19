@@ -417,7 +417,7 @@ if __name__ == '__main__':
     resp1 = field.takeoff_service(4)
     ########### Takeoff Controll ###############
 
-    rospy.sleep(5)
+    rospy.sleep(500)
 
     startTime = rospy.Time.now()
     rate = rospy.Rate(10) # 10hz
