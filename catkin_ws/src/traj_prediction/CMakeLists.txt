@@ -45,11 +45,6 @@ include_directories(
 
 
 ## Declare a C++ library
-# FILE(GLOB alglibCSources src/alglib/*.cpp)
-# add_library(alglib
-#   ${alglibCSources}
-# )
-
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
