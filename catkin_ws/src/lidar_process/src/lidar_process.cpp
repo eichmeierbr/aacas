@@ -372,7 +372,6 @@ class pc_process{
         cout << " HERE " <<endl;
         instance_pos_dict.insert({69,fake_obstacle});
         //////////////////////////////////////////////
-
         publisher();
         
     }
@@ -383,7 +382,6 @@ class pc_process{
         q.y() = msg.quaternion.y; 
         q.z() = msg.quaternion.z; 
         q.w() = msg.quaternion.w; 
-        
         Trans.block<3,3>(0,0) = q.normalized().toRotationMatrix();
     }
 
