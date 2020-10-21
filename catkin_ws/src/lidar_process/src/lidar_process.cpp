@@ -78,7 +78,7 @@ class pc_process{
     
     //lidar frame to global frame transformation
     Eigen::Matrix4d Trans = Eigen::MatrixXd::Identity(4, 4);
-    
+
     Eigen:: MatrixXf intrinsics;
     Eigen:: MatrixXf extrinsics; 
     Eigen:: MatrixXf camera_matrix;
@@ -287,17 +287,12 @@ class pc_process{
     geometry_msgs::Point apply_trans(instance_pos* poses){
         Eigen::MatrixXd obj_pose_lidar_frame(4, 1);
         Eigen::MatrixXd obj_pose_global_frame(4, 1);
-        // Eigen::MatrixXf obj_pose_lidar_frame(4, 1);
-        obj_pose_lidar_frame << poses-> x , poses->y, poses->z ,1;
+        obj_pose_lidar_frame << -poses->y , poses->x, -poses->z ,1;
         obj_pose_global_frame = Trans * obj_pose_lidar_frame;
         geometry_msgs::Point point;
         point.x = obj_pose_global_frame(0);
         point.y = obj_pose_global_frame(1);
         point.z = obj_pose_global_frame(2);
-
-        cout << point.x << endl;
-        cout << point.y << endl;
-        cout << point.z << endl;
         return point;
     }
 
@@ -307,10 +302,10 @@ class pc_process{
         {           
             lidar_process::tracked_obj tracked_obj_msg;
             // geometry_msgs::Point point;
-            // tracked_obj_msg.object_id = x.first; 
             // point.x = x.second ->x;
             // point.y = x.second ->y;
             // point.z = x.second ->z;
+            tracked_obj_msg.object_id = x.first; 
             geometry_msgs::Point point = apply_trans(x.second);
             tracked_obj_msg.point = point;
             tracked_obj_msg.header.stamp = ros::Time::now();
@@ -322,7 +317,6 @@ class pc_process{
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
-                
         //loop through all bounding boxes
         for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
             // instance ID of the object
@@ -368,8 +362,16 @@ class pc_process{
 
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;
-        
         crop_cloud(point_cloud_msg);
+                
+        ///////////////////////////////////////////create fake obstacle just for testing purpose
+        instance_pos* fake_obstacle = new instance_pos();
+        fake_obstacle->x = 1;
+        fake_obstacle->y = 1;
+        fake_obstacle->z = 0;
+        cout << " HERE " <<endl;
+        instance_pos_dict.insert({69,fake_obstacle});
+        //////////////////////////////////////////////
 
         publisher();
         
@@ -382,16 +384,16 @@ class pc_process{
         q.z() = msg.quaternion.z; 
         q.w() = msg.quaternion.w; 
         
-        Trans.block<3,3>(0,0) =  q.normalized().toRotationMatrix();
-        // cout << " blah " << endl;
-        // cout<<msg.quaternion.x << endl;
-
+        Trans.block<3,3>(0,0) = q.normalized().toRotationMatrix();
     }
 
     void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
-        Eigen::Vector3d T;
+        // Eigen::Vector3d T;
+        Eigen::MatrixXd  T(3, 1);
         T << msg.point.x , msg.point.y, msg.point.z;
+        // cout << "translation" << T << endl;
         Trans.block<3,1>(0,3) = T;
+        // cout << "full matrix" << Trans << endl;
     }
 
 
