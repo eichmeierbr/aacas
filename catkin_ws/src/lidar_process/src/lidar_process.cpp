@@ -45,6 +45,7 @@ struct instance_pos{
     int object_label;
 };
 
+// The map that stores the position of detected objects. Key:object_id. Value:Object position
 unordered_map<int ,instance_pos*> instance_pos_dict;
 
 class pc_process{
@@ -203,7 +204,6 @@ class pc_process{
     
     
     void cluster(){
-
                 pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
                 pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
                 tree->setInputCloud (cloud_in_bb);
@@ -259,9 +259,6 @@ class pc_process{
     }
 
 
-
-
-
     instance_pos* get_pos(int object_label){
         instance_pos* inst_pos_ptr = new instance_pos();
         float x_avg = 0;
@@ -284,6 +281,7 @@ class pc_process{
         return inst_pos_ptr;
     }
 
+    //Transform detected object from lidar frame to global frame
     geometry_msgs::Point apply_trans(instance_pos* poses){
         Eigen::MatrixXd obj_pose_lidar_frame(4, 1);
         Eigen::MatrixXd obj_pose_global_frame(4, 1);
@@ -301,10 +299,6 @@ class pc_process{
         for (auto const& x : instance_pos_dict)
         {           
             lidar_process::tracked_obj tracked_obj_msg;
-            // geometry_msgs::Point point;
-            // point.x = x.second ->x;
-            // point.y = x.second ->y;
-            // point.z = x.second ->z;
             tracked_obj_msg.object_id = x.first; 
             geometry_msgs::Point point = apply_trans(x.second);
             tracked_obj_msg.point = point;
@@ -363,15 +357,6 @@ class pc_process{
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;
         crop_cloud(point_cloud_msg);
-                
-        ///////////////////////////////////////////create fake obstacle just for testing purpose
-        instance_pos* fake_obstacle = new instance_pos();
-        fake_obstacle->x = 1;
-        fake_obstacle->y = 1;
-        fake_obstacle->z = 0;
-        cout << " HERE " <<endl;
-        instance_pos_dict.insert({69,fake_obstacle});
-        //////////////////////////////////////////////
         publisher();
         
     }
@@ -389,9 +374,7 @@ class pc_process{
         // Eigen::Vector3d T;
         Eigen::MatrixXd  T(3, 1);
         T << msg.point.x , msg.point.y, msg.point.z;
-        // cout << "translation" << T << endl;
         Trans.block<3,1>(0,3) = T;
-        // cout << "full matrix" << Trans << endl;
     }
 
 
@@ -399,13 +382,10 @@ class pc_process{
 
 
 
-
-
-  
-  int main (int argc, char** argv)
-  {
-    // Initialize ROS
-    ros::init (argc, argv, "lidar_process_node");
-    pc_process pc_processer; 
-    ros::spin ();
-  }
+int main (int argc, char** argv)
+{
+// Initialize ROS
+ros::init (argc, argv, "lidar_process_node");
+pc_process pc_processer; 
+ros::spin ();
+}

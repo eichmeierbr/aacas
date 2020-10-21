@@ -52,8 +52,7 @@ class traj_predictor{
     int interlopated_pnts =4;
     // the number of position points availabel before the trajectory prediction is activated 
     int pred_pnt_thresh; 
-    //lidar frame to global frame transformation
-    // Eigen::Matrix4d Trans = Eigen::MatrixXd::Identity(4, 4);
+
 
     public:
     ros::Time curr_time;
@@ -98,22 +97,6 @@ class traj_predictor{
              if (x.second.size() > pred_pnt_thresh){
                     prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
                     publisher(pred_result, x.first);
-                // if ((*obj_labels)[x.first] == 0){
-                //     // if (x.first==0){
-                //     //     poly_predict(pred_poly_order, x.first);
-                //     // }
-                //     int count = 0;
-                //     float x_avg =0;
-                //     float y_avg = 0;
-                //     float z_avg = 0;
-                //     for (auto it = begin(x.second); it!= end(x.second); ++it){
-                //     count ++;
-                //     x_avg = x_avg*(count-1)/count + it -> second.x/count;
-                //     y_avg = y_avg*(count-1)/count + it -> second.y/count;
-                //     z_avg = z_avg*(count-1)/count + it -> second.z/count;
-                //     }
-                // }
-
              }
              
          }
@@ -165,7 +148,6 @@ class traj_predictor{
         Eigen::MatrixXf x_pred = future_T * x_beta;
         Eigen::MatrixXf y_pred = future_T * y_beta;
         Eigen::MatrixXf z_pred = future_T * z_beta;
-
         Eigen::MatrixXf pred(x_pred.rows(), x_pred.cols() + y_pred.cols() + z_pred.cols()+T_pred.cols());
         pred <<  x_pred,  y_pred,  z_pred , T_pred;
 
@@ -196,26 +178,6 @@ class traj_predictor{
         return;
     }
     
-    // void drone_orient_cb(const::geometry_msgs::QuaternionStamped msg){
-    //     Eigen::Quaterniond q;
-    //     q.x() = msg.quaternion.x; 
-    //     q.y() = msg.quaternion.y; 
-    //     q.z() = msg.quaternion.z; 
-    //     q.w() = msg.quaternion.w; 
-        
-    //     Trans.block<3,3>(0,0) =  q.normalized().toRotationMatrix();
-    //     // cout << " blah " << endl;
-    //     // cout<<msg.quaternion.x << endl;
-
-    // }
-
-    // void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
-    //     Eigen::Vector3d T;
-    //     T << msg.point.x , msg.point.y, msg.point.z;
-    //     Trans.block<3,1>(0,3) = T;
-    //     cout << Trans<< endl;
-    //     cout << "" << endl;
-    // }
 };
 
 
@@ -227,9 +189,6 @@ unordered_map<int, int> &obj_labels, traj_predictor* traj_predictor){
     vector<int> dead_keys; 
     for (auto &x : obj_poses_dict )
         {
-        // cout << "object ids " << x.first<< endl;
-        // cout << "size" << x.second.size() << endl;
-        // cout << "    " << endl;
         for (auto it = begin(x.second); it!= end(x.second);){
             // if the instance_pos entry is older than max_time_span, delete it
             if ((traj_predictor->curr_time - it->first) > max_time_span){
