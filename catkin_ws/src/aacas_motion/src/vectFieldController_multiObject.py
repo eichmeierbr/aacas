@@ -33,6 +33,8 @@ class vectFieldController:
         self.goalPt = 0
         self.goal = self.waypoints[self.goalPt]
         self.switch_dist =  rospy.get_param('switch_waypoint_distance')
+        self.last_waypoint_time = rospy.Time.now()
+        self.waypoint_wait_time = rospy.get_param('waypoint_wait', default=5.0)
 
         # Orbit params
         self.freq = -1 # Orbit direction (+: CW, -: ccw)
@@ -211,6 +213,7 @@ class vectFieldController:
             if(self.goalPt > len(self.waypoints)-1):
                 self.goalPt = 0
             self.goal =self.waypoints[self.goalPt]
+            self.last_waypoint_time = rospy.Time.now()
 
 
     def headingControl(self, velDes):
@@ -269,8 +272,11 @@ class vectFieldController:
  
         # Get velocity vector
         velDes = self.getXdes() 
-        # rospy.loginfo("Out Vel: X: %.2f, Y: %.2f, Z: %.2f, Yaw: %.2f" %(velDes[0], velDes[1], velDes[2], velDes[3]))
-         
+
+        # Pause to rotate after waypoint
+        if (rospy.Time.now() - self.last_waypoint_time).to_sec() < self.waypoint_wait_time:
+            velDes[:3] = [0,0,0]
+
         # Publish Vector
         joy_out = Joy()
         joy_out.header.stamp = rospy.Time.now()

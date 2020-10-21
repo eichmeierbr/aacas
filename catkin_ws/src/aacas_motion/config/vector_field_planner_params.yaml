@@ -2,6 +2,7 @@
 switch_waypoint_distance: 1
 maximum_velocity:         2
 safe_distance:            5
+waypoint_wait:            5.0
 
 waypoint_x: [0.0, 0.0]
 waypoint_y: [0.0, 20.0]
