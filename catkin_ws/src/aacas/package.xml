@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package>
+  <name>aacas</name>
+  <version>0.0.0</version>
+  <description>The aacas_motion package</description>
+
+  <maintainer email="eichmeierbr@todo.todo">eichmeierbr</maintainer>
+
+  <license>BSD</license>
+
+
+</package>

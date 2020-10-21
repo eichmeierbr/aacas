@@ -1,0 +1,21 @@
+## Publisher Information
+attitude_pub_name: "dji_sdk/attitude"
+imu_pub_name: "dji_sdk/imu"
+velocity_pub_name: "dji_sdk/velocity"
+position_pub_name: "dji_sdk/local_position"
+height_pub_name: "dji_sdk/height_above_takeoff"
+
+## Subscriber Information
+pos_ctrl_sub_name: "dji_sdk/flight_control_setpoint_ENUposition_yaw"
+vel_ctrl_sub_name: "dji_sdk/flight_control_setpoint_ENUvelocity_yawrate"
+
+
+
+## Takeoff and landing  Service parameters
+takeoff_land_service_name: 'dji_sdk/drone_task_control'
+
+## Visual Parameters:
+transform_z_offset: 0.55
+
+
+live_flight: true

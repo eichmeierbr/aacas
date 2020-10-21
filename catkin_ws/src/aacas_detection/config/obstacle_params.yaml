@@ -1,0 +1,28 @@
+query_detections_service: 'query_obstacle_detections'
+true_obstacle_topic: 'obstacle_information'
+
+# Fake Detector Parameters
+object_position_noise: 0.5
+object_velocity_noise: 0.5
+object_detection_rate: 0.7
+object_detection_dist: 10.0
+
+# Obstacle position parameters
+# ob_start_x: [11, 9]
+# ob_start_y: [1.5, -1.5]
+# ob_start_z: [10, 10]
+
+ob_start_x: [10.0]
+ob_start_y: [0.0]
+ob_start_z: [10.0]
+
+# Obstacle Velocity Parameters
+ob_vel_x: 0
+ob_vel_y: 0
+ob_vel_z: 0
+
+travel_dist: 15
+
+nr_of_obstacles: 1
+
+kickball_radius: 0.127

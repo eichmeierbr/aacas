@@ -1,0 +1,7 @@
+#request
+geometry_msgs/Point vehicle_position    
+geometry_msgs/Quaternion attitude    
+---
+# Response
+lidar_process/tracked_obj_arr detection_array
+

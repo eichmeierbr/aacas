@@ -19,3 +19,19 @@ cd ../../..
 
 #Velodyn Setup
 sudo apt-get install ros-VERSION-velodyne
+
+# DJI SDK install
+cd SDK/Onboard-SDK
+git checkout 3.9
+mkdir build
+cd build
+cmake ..
+make djiosdk-core
+sudo make install
+../../../
+
+cd catkin_ws/src
+git clone https://github.com/dji-sdk/Onboard-SDK-ROS.git
+cd Onboard-SDK-ROS
+git checkout 3.8
+cd ../../..

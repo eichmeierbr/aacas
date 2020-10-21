@@ -4,7 +4,7 @@
   <arg name="image_topic"  default="/camera/color/image_raw"/>
 
   <!--Configurations-->
-  <arg name="weights_name"  default="yolov3_v2.pth"/>
+  <arg name="weights_name"  default="yolov3_drone.pth"/>
   <arg name="config_name"   default="yolov3-custom.cfg"/>
   <arg name="classes_name"  default="custom.names"/>
 
