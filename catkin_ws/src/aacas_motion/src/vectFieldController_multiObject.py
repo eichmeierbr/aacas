@@ -34,7 +34,7 @@ class vectFieldController:
         self.goal = self.waypoints[self.goalPt]
         self.switch_dist =  rospy.get_param('switch_waypoint_distance')
         self.last_waypoint_time = rospy.Time.now()
-        self.waypoint_wait_time = 5.0 ################# CHANGE TO PARAM
+        self.waypoint_wait_time = rospy.get_param('waypoint_wait', default=5.0)
 
         # Orbit params
         self.freq = -1 # Orbit direction (+: CW, -: ccw)
