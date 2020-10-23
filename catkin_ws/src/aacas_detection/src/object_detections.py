@@ -10,8 +10,10 @@ import copy
 class DetectionSimulation:
   def __init__(self):
     self.true_detections_ = []
-    # self.sim_detections_ = ObstacleDetectionArray()
-    # self.true_out_detections_ = ObstacleDetectionArray()
+
+    self.pos_pt = 0
+    self.pos = np.zeros(3)
+    self.quat = []
 
     self.sim_detections_ = tracked_obj_arr()
     self.true_out_detections_ = tracked_obj_arr()
@@ -20,17 +22,28 @@ class DetectionSimulation:
     detection_pub_name = rospy.get_param('true_obstacle_topic')
     self.detection_pub_ = rospy.Publisher(detection_pub_name, tracked_obj_arr, queue_size=1)
 
-    # Service to report simulated detections
-    detections_service_name = rospy.get_param('query_detections_service')
-    self.task_ctrl_service_ = rospy.Service(detections_service_name, QueryDetections, self.reportDetections)
+    tracked_obj_topic = rospy.get_param('obstacle_trajectory_topic')
+    self.prediction_pub_ = rospy.Publisher(tracked_obj_topic, tracked_obj_arr, queue_size=1)
 
-    
+    # Subscriber Information
+    rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
+    rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
+
+
+  def position_callback(self, msg):
+      pt = msg.point
+      self.pos_pt = pt
+      self.pos = np.array([pt.x, pt.y, pt.z])
+
+
+  def attitude_callback(self, msg):
+      q = msg.quaternion
+      self.quat = [q.w, q.x, q.y, q.z]
 
 
   def updateDetections(self, pos=np.zeros(3), quat=[0,0,0,1], true_detections=False):
 
     if true_detections: 
-      # true_detects = ObstacleDetectionArray()
       true_detects = tracked_obj_arr()
       for obj in self.true_detections_:
         out_detection = obj.convertToDetectionMessage(orig_pos = pos)
@@ -38,7 +51,6 @@ class DetectionSimulation:
       self.true_out_detections_ = true_detects
 
     else: 
-      # sim_detections = ObstacleDetectionArray()
       sim_detections = tracked_obj_arr()
       for detection in self.true_detections_:
         obj = detection.fake_detection()
@@ -56,10 +68,9 @@ class DetectionSimulation:
     self.detection_pub_.publish(self.true_out_detections_)
 
 
-  def reportDetections(self, req):
-    veh_pos = [req.vehicle_position.x, req.vehicle_position.y, req.vehicle_position.z]
-    self.updateDetections(pos=veh_pos, quat=req.attitude, true_detections=False)
-    return self.sim_detections_
+  def reportDetections(self):
+    self.updateDetections(pos=self.pos, quat=self.quat, true_detections=False)
+    self.prediction_pub_.publish(self.sim_detections_)
 
 
 
@@ -136,6 +147,7 @@ if __name__ == '__main__':
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         detector.publishDetections()
+        detector.reportDetections()
         rate.sleep()
 
     rospy.spin()

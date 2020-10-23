@@ -69,19 +69,19 @@ class vectFieldController:
 
         pos_ctrl_pub_name = rospy.get_param('pos_ctrl_sub_name')
         self.pos_ctrl_pub_ = rospy.Publisher(pos_ctrl_pub_name, Joy, queue_size=10)
+        
 
         # Subscriber Information
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
 
+        tracked_obj_topic = rospy.get_param('obstacle_trajectory_topic')
+        rospy.Subscriber(tracked_obj_topic, tracked_obj_arr, self.updateDetections, queue_size=1)
+
         # Service Information
         self.live_flight = rospy.get_param('live_flight',default=False)
-        if self.live_flight:
-            query_detections_name = rospy.get_param('query_detections_service')
-            rospy.wait_for_service(query_detections_name)
-            self.query_detections_service_ = rospy.ServiceProxy(query_detections_name, QueryDetections)
-    
+        if self.live_flight:  
             takeoff_service_name = rospy.get_param('takeoff_land_service_name')
             rospy.wait_for_service(takeoff_service_name)
             self.takeoff_service = rospy.ServiceProxy(takeoff_service_name, DroneTaskControl)
@@ -94,13 +94,12 @@ class vectFieldController:
             rospy.wait_for_service(set_pos_name)
             self.set_pos_service = rospy.ServiceProxy(set_pos_name, SetLocalPosRef)
         else:
-            query_detections_name = rospy.get_param('query_detections_service')
-            rospy.wait_for_service(query_detections_name)
-            self.query_detections_service_ = rospy.ServiceProxy(query_detections_name, QueryDetections)
-    
             takeoff_service_name = rospy.get_param('takeoff_land_service_name')
             rospy.wait_for_service(takeoff_service_name)
             self.takeoff_service = rospy.ServiceProxy(takeoff_service_name, SimDroneTaskControl)
+
+
+
 
 
 
@@ -268,7 +267,7 @@ class vectFieldController:
         self.v_max =  rospy.get_param('maximum_velocity')
         
         # Update Detections
-        self.updateDetections()
+        # self.updateDetections()
  
         # Get velocity vector
         velDes = self.getXdes() 
@@ -346,10 +345,11 @@ class vectFieldController:
         return T_vo
 
 
-    def updateDetections(self):
-        in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
+    def updateDetections(self, msg):
+        # in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
+        in_detections = msg.tracked_obj_arr
         self.detections = []
-        for obj in in_detections.detection_array.tracked_obj_arr:
+        for obj in in_detections:
             newObj = Objects()
             newObj.position = obj.point
             newObj.velocity = Point(0,0,0)
@@ -434,6 +434,7 @@ if __name__ == '__main__':
         field.move()
 
         field.safetyCheck()
+        field.is_safe = True
         rate.sleep()
     
     if field.is_safe: # If the planner exited normally, land
