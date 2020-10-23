@@ -286,6 +286,11 @@ if __name__ == '__main__':
     
     sim = DJI_simulator()
 
+    rate = rospy.Rate(10) # 10hz
+    while not rospy.is_shutdown():
+      rate.sleep()
+      sim.publishData()
+
     rospy.spin()
     
   except rospy.ROSInterruptException:
