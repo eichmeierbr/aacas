@@ -2,11 +2,18 @@
 
 import rospy
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+from scipy import interpolate
 from nav_msgs.msg import Path
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 from lidar_process.msg import tracked_obj, tracked_obj_arr
 
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 
 class Objects:
@@ -73,7 +80,7 @@ class pathGenerator:
     def position_callback(self, msg):
         pt = msg.point
         self.pos_pt = pt
-        self.pos = np.array([pt.x, pt.y, pt.z])
+        self.now_pos = np.array([pt.x, pt.y, pt.z])
 
     def velocity_callback(self, msg):
         pt = msg.vector
@@ -112,8 +119,6 @@ class pathGenerator:
     def getXdes(self):
         velDes = np.zeros(4)
 
-        if len(self.waypoints) == 0: return velDes
-        
         # Check if we are close to an object
         closeObjects, avoid = self.getCloseObjects()
         
@@ -166,17 +171,6 @@ class pathGenerator:
         return closeObjects, move
 
 
-    def changeGoalPt(self):
-        dist_to_goal = np.linalg.norm(self.pos-self.goal)
-
-        if(dist_to_goal < self.switch_dist):
-            self.is_ready = True #set true after reaching 1st waypoint and allow z velocity safety checks.
-            self.goalPt += 1
-            if(self.goalPt > len(self.waypoints)-1):
-                self.goalPt = 0
-            self.goal =self.waypoints[self.goalPt]
-            self.last_waypoint_time = rospy.Time.now()
-
 
     ## TODO: Need to handle moving obstacles better
     def decideOrbitDirection(self, ob):
@@ -214,18 +208,51 @@ class pathGenerator:
 
 
     def getPath(self):
-        # Check if we have reached the next waypoint. If so, update
 
-        self.changeGoalPt()
         self.v_max =  rospy.get_param('maximum_velocity')
-        
-        # Update Detections
-        # self.updateDetections()
- 
-        # Get velocity vector
-        velDes = self.getXdes() 
+        self.pos = np.array(self.now_pos)
+
 
         ## TODO Perform integration
+        path = np.array(self.pos)
+
+        for i in range(150):
+            self.simDetections()
+            velDes = self.getXdes() 
+            self.pos += velDes[:3]*0.1
+            path = np.vstack((path,self.pos))
+
+        self.plotPath(path)
+        self.now_pos = path[1]
+
+
+
+
+
+    def plotPath(self, path):
+        xs = path[:,0]
+        ys = path[:,1]
+
+        xs = moving_average(xs, n=25)
+        ys = moving_average(ys, n=25)
+
+        plt.clf()
+        plt.plot(xs, ys)
+        for i in range(len(self.detections)):
+            plt.scatter(self.detections[i].position.x, self.detections[i].position.y, marker='o', c='r')
+        plt.scatter(self.now_pos[0], self.now_pos[1], marker='s', c='b', s=np.power(30,2))
+        plt.scatter(self.goal[0], self.goal[1], marker='^', c='g', s=80)
+        plt.xlim([-10,10])
+        plt.ylim([-5,25])
+
+        plt.draw()
+        plt.pause(0.0001)
+
+        a=4
+
+
+
+        
 
 
 
@@ -286,7 +313,6 @@ class pathGenerator:
 
 
     def updateDetections(self, msg):
-        # in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
         in_detections = msg.tracked_obj_arr
         self.detections = []
         for obj in in_detections:
@@ -296,9 +322,23 @@ class pathGenerator:
             newObj.id = obj.object_id
             newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
             self.detections.append(newObj)
-            # self.detections = in_detections.detection_array.tracked_obj_arr
 
-    
+
+
+    def simDetections(self):
+        self.detections = []
+        in_detections = [[0,10,2]]
+        for obj in in_detections:
+            newObj = Objects()
+            newObj.position = Point(obj[0], obj[1], obj[2])
+            newObj.velocity = Point(0,0,0)
+            newObj.distance = np.linalg.norm([newObj.position.x - self.pos[0], newObj.position.y - self.pos[1], newObj.position.z - self.pos[2]])
+            self.detections.append(newObj)
+
+
+
+
+
 
 
 if __name__ == '__main__': 
@@ -308,17 +348,16 @@ if __name__ == '__main__':
 
     # Launch Node
     path_gen = pathGenerator()
+    path_gen.simDetections()
 
     x_waypoint = rospy.get_param('waypoint_x')
     y_waypoint = rospy.get_param('waypoint_y')
     z_waypoint = rospy.get_param('waypoint_z')
     path_gen.waypoints = np.transpose(np.array([x_waypoint, y_waypoint, z_waypoint]))
-    path_gen.goal = path_gen.waypoints[0] 
+    path_gen.goal = path_gen.waypoints[1] 
 
 
-    startTime = rospy.Time.now()
     while not rospy.is_shutdown():
-
         path_gen.getPath()
         rate.sleep()
     
