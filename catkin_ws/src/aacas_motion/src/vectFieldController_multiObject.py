@@ -80,6 +80,8 @@ class vectFieldController:
 
         pos_ctrl_pub_name = rospy.get_param('pos_ctrl_sub_name')
         self.pos_ctrl_pub_ = rospy.Publisher(pos_ctrl_pub_name, Joy, queue_size=10)
+
+        self.goal_pub_ = rospy.Publisher('current_goal', Point, queue_size=10)
         
 
         # Subscriber Information
@@ -258,6 +260,7 @@ class vectFieldController:
                 self.goalPt = 0
             self.goal =self.waypoints[self.goalPt]
             self.last_waypoint_time = rospy.Time.now()
+            self.goal_pub_.publish(Point(self.goal[0], self.goal[1], self.goal[2]))
 
 
     def headingControl(self, velDes):
@@ -306,13 +309,11 @@ class vectFieldController:
     ## TODO: Move find close obstacles to move. Do position control if no obstacles to avoid
     ## For now: Always do velocity control
     def move(self):
-        # Check if we have reached the next waypoint. If so, update
 
+        # Check if we have reached the next waypoint. If so, update
         self.changeGoalPt()
         self.v_max =  rospy.get_param('maximum_velocity')
         
-        # Update Detections
-        # self.updateDetections()
  
         # Get velocity vector
         velDes = self.getXdes() 
@@ -327,11 +328,6 @@ class vectFieldController:
         joy_out.axes = [velDes[0], velDes[1], velDes[2],velDes[3]]
         self.vel_ctrl_pub_.publish(joy_out)
 
-        # Publish Vector
-        # joy_out = Joy()
-        # joy_out.header.stamp = rospy.Time.now()
-        # joy_out.axes = [self.goal[0], self.goal[1], self.goal[2], 0]
-        # self.pos_ctrl_pub_.publish(joy_out)
 
 
 
