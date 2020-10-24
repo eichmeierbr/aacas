@@ -1,4 +1,4 @@
-query_detections_service: 'query_obstacle_detections'
+obstacle_trajectory_topic: 'predicted_obj_pos_arr'
 true_obstacle_topic: 'obstacle_information'
 
 # Fake Detector Parameters
