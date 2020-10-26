@@ -1,6 +1,10 @@
 #include <ros/ros.h>
 #include <lidar_process/tracked_obj.h>
 #include <lidar_process/tracked_obj_arr.h>
+#include <traj_prediction/tracked_obj.h>
+#include <traj_prediction/tracked_obj_arr.h>
+#include <traj_prediction/tracked_obj_coeff.h>
+#include <traj_prediction/coeff.h>
 // Cpp packages
 #include <stdlib.h>
 #include <stdio.h>
@@ -44,9 +48,8 @@ class traj_predictor{
     //key: object_id
     unordered_map<int, vector<pair<ros::Time, instance_pos>>>* obj_poses_dict; 
     ros::Subscriber tracked_obj_sub;
-    // ros::Subscriber drone_pos_sub;
-    // ros::Subscriber drone_orient_sub;
     ros::Publisher obj_trajectory_pub;
+    ros::Publisher obj_pred_coeff_pub; 
     // order of the polynomial used for prediction
     int pred_poly_order;
     //seconds into the future that we want to predict
@@ -69,28 +72,63 @@ class traj_predictor{
         n.getParam("pred_poly_order", pred_poly_order);
         this->obj_poses_dict = obj_poses_dict;
         this-> obj_labels = obj_labels;
-        // drone_pos_sub = n.subscribe("/dji_sdk/local_position", 10, &traj_predictor::drone_pos_cb,this);
-        // drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &traj_predictor::drone_orient_cb,this);
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
-        obj_trajectory_pub = n.advertise<lidar_process::tracked_obj_arr> ("predicted_obj_pos_arr", 1);
+        obj_trajectory_pub = n.advertise<traj_prediction::tracked_obj_arr> ("predicted_obj_pos_arr", 1);
+        obj_pred_coeff_pub = n.advertise<traj_prediction::tracked_obj_coeff> ("predicted_obj_coeff", 1);
 
     }
 
     void publisher( prediction_result* pred_result, int obj_id){
-        lidar_process::tracked_obj_arr obj_pred_arr_msg;
+        traj_prediction::tracked_obj_arr obj_pred_arr_msg;
+        
+        traj_prediction::tracked_obj_coeff obj_pred_coeff_msg;
+        obj_pred_coeff_msg.object_id = obj_id; 
+        obj_pred_coeff_msg.header.stamp = pred_result->prediction_time;
+
+        traj_prediction::coeff x_coeff;
+        traj_prediction::coeff y_coeff;
+        traj_prediction::coeff z_coeff;
+        cout  << pred_result->x_beta(1,0)<< endl;
+
+        x_coeff.vel_coeff = pred_result->x_beta(1,0);
+        x_coeff.const_coeff =pred_result->x_beta(0,0);
+
+        y_coeff.vel_coeff = pred_result->y_beta(1,0);
+        y_coeff.const_coeff =pred_result->y_beta(0,0);
+
+        z_coeff.vel_coeff = pred_result->z_beta(1,0);
+        z_coeff.const_coeff =pred_result->z_beta(0,0);
+
+        if (pred_poly_order == 1){
+            x_coeff.acc_coeff = 0;
+            y_coeff.acc_coeff = 0;
+            z_coeff.acc_coeff = 0;
+        }
+        else{
+            x_coeff.acc_coeff =pred_result->x_beta(2,0);
+            y_coeff.acc_coeff =pred_result->y_beta(2,0);
+            z_coeff.acc_coeff =pred_result->z_beta(2,0);
+        }
+
+        obj_pred_coeff_msg.x_coeff = x_coeff;
+        obj_pred_coeff_msg.y_coeff = y_coeff;
+        obj_pred_coeff_msg.z_coeff = z_coeff;
+
         for (int i =0; i < pred_result -> prediction.rows(); i++){
-            lidar_process::tracked_obj tracked_obj_msg;
+            traj_prediction::tracked_obj pred_obj_msg;
             geometry_msgs::Point point;
-            tracked_obj_msg.object_id = obj_id; 
+            pred_obj_msg.object_id = obj_id; 
             point.x = pred_result->prediction(i,0);
             point.y = pred_result->prediction(i,1);
             point.z = pred_result->prediction(i,2);
-            tracked_obj_msg.point = point;
-            tracked_obj_msg.header.stamp = pred_result->prediction_time;
-            tracked_obj_msg.time_increment=  pred_result -> prediction(i,3);
-            obj_pred_arr_msg.tracked_obj_arr.push_back(tracked_obj_msg);
+            pred_obj_msg.point = point;
+            pred_obj_msg.header.stamp = pred_result->prediction_time;
+            pred_obj_msg.time_increment=  pred_result -> prediction(i,3);
+            obj_pred_arr_msg.tracked_obj_arr.push_back(pred_obj_msg);
         }
+
         obj_trajectory_pub.publish(obj_pred_arr_msg);
+        obj_pred_coeff_pub.publish(obj_pred_coeff_msg);
         delete pred_result;
     }
 
@@ -135,6 +173,7 @@ class traj_predictor{
         x_beta = (T.transpose()*T).inverse()*T.transpose()*X;
         y_beta = (T.transpose()*T).inverse()*T.transpose()*Y;
         z_beta = (T.transpose()*T).inverse()*T.transpose()*Z;
+        
 
         //make the prediction
         Eigen::MatrixXf future_T(interlopated_pnts, col_num);
@@ -160,7 +199,6 @@ class traj_predictor{
         pred_result -> x_beta = x_beta;
         pred_result -> y_beta = y_beta;
         pred_result -> z_beta = z_beta;
-        
         return pred_result;
     }
 

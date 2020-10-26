@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(traj_prediction)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-#add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 find_package(PkgConfig)
@@ -22,6 +22,19 @@ find_package(catkin REQUIRED COMPONENTS
 
 
 
+add_message_files(
+    FILES
+    tracked_obj.msg
+    tracked_obj_arr.msg
+    coeff.msg
+    tracked_obj_coeff.msg
+)
+
+generate_messages(
+   DEPENDENCIES
+   geometry_msgs
+   std_msgs
+)
 
 
 catkin_package(
