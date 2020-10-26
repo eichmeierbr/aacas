@@ -26,6 +26,9 @@ int pos_array_time_span;
 struct prediction_result{
     Eigen::MatrixXf prediction;
     ros::Time prediction_time;
+    Eigen::MatrixXf x_beta;
+    Eigen::MatrixXf y_beta;
+    Eigen::MatrixXf z_beta;
 };
 
 struct instance_pos{
@@ -154,7 +157,10 @@ class traj_predictor{
         prediction_result*pred_result = new prediction_result();
         pred_result-> prediction = pred;
         pred_result->prediction_time = prediction_time;
-
+        pred_result -> x_beta = x_beta;
+        pred_result -> y_beta = y_beta;
+        pred_result -> z_beta = z_beta;
+        
         return pred_result;
     }
 
