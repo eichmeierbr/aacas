@@ -10,6 +10,8 @@ pos_ctrl_sub_name: "dji_sdk/flight_control_setpoint_ENUposition_yaw"
 vel_ctrl_sub_name: "dji_sdk/flight_control_setpoint_ENUvelocity_yawrate"
 
 
+obstacle_trajectory_topic: 'predicted_obj_pos_arr'
+
 
 ## Takeoff and landing  Service parameters
 takeoff_land_service_name: 'dji_sdk/drone_task_control'
