@@ -49,7 +49,6 @@ class traj_predictor{
     unordered_map<int, vector<pair<ros::Time, instance_pos>>>* obj_poses_dict; 
     ros::Subscriber tracked_obj_sub;
     ros::Publisher obj_trajectory_pub;
-    ros::Publisher obj_pred_coeff_pub; 
     // order of the polynomial used for prediction
     int pred_poly_order;
     //seconds into the future that we want to predict
@@ -74,61 +73,85 @@ class traj_predictor{
         this-> obj_labels = obj_labels;
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
         obj_trajectory_pub = n.advertise<traj_prediction::tracked_obj_arr> ("predicted_obj_pos_arr", 1);
-        obj_pred_coeff_pub = n.advertise<traj_prediction::tracked_obj_coeff> ("predicted_obj_coeff", 1);
 
     }
 
     void publisher( prediction_result* pred_result, int obj_id){
         traj_prediction::tracked_obj_arr obj_pred_arr_msg;
         
-        traj_prediction::tracked_obj_coeff obj_pred_coeff_msg;
-        obj_pred_coeff_msg.object_id = obj_id; 
-        obj_pred_coeff_msg.header.stamp = pred_result->prediction_time;
+        // traj_prediction::tracked_obj_coeff obj_pred_coeff_msg;
+        // obj_pred_coeff_msg.object_id = obj_id; 
+        // obj_pred_coeff_msg.header.stamp = pred_result->prediction_time;
 
-        traj_prediction::coeff x_coeff;
-        traj_prediction::coeff y_coeff;
-        traj_prediction::coeff z_coeff;
-        cout  << pred_result->x_beta(1,0)<< endl;
+        // traj_prediction::coeff x_coeff;
+        // traj_prediction::coeff y_coeff;
+        // traj_prediction::coeff z_coeff;
+        // cout  << pred_result->x_beta(1,0)<< endl;
 
-        x_coeff.vel_coeff = pred_result->x_beta(1,0);
-        x_coeff.const_coeff =pred_result->x_beta(0,0);
+        // x_coeff.vel_coeff = pred_result->x_beta(1,0);
+        // x_coeff.const_coeff =pred_result->x_beta(0,0);
 
-        y_coeff.vel_coeff = pred_result->y_beta(1,0);
-        y_coeff.const_coeff =pred_result->y_beta(0,0);
+        // y_coeff.vel_coeff = pred_result->y_beta(1,0);
+        // y_coeff.const_coeff =pred_result->y_beta(0,0);
 
-        z_coeff.vel_coeff = pred_result->z_beta(1,0);
-        z_coeff.const_coeff =pred_result->z_beta(0,0);
+        // z_coeff.vel_coeff = pred_result->z_beta(1,0);
+        // z_coeff.const_coeff =pred_result->z_beta(0,0);
 
-        if (pred_poly_order == 1){
-            x_coeff.acc_coeff = 0;
-            y_coeff.acc_coeff = 0;
-            z_coeff.acc_coeff = 0;
-        }
-        else{
-            x_coeff.acc_coeff =pred_result->x_beta(2,0);
-            y_coeff.acc_coeff =pred_result->y_beta(2,0);
-            z_coeff.acc_coeff =pred_result->z_beta(2,0);
-        }
+        // if (pred_poly_order == 1){
+        //     x_coeff.acc_coeff = 0;
+        //     y_coeff.acc_coeff = 0;
+        //     z_coeff.acc_coeff = 0;
+        // }
+        // else{
+        //     x_coeff.acc_coeff =pred_result->x_beta(2,0);
+        //     y_coeff.acc_coeff =pred_result->y_beta(2,0);
+        //     z_coeff.acc_coeff =pred_result->z_beta(2,0);
+        // }
 
-        obj_pred_coeff_msg.x_coeff = x_coeff;
-        obj_pred_coeff_msg.y_coeff = y_coeff;
-        obj_pred_coeff_msg.z_coeff = z_coeff;
+        // obj_pred_coeff_msg.x_coeff = x_coeff;
+        // obj_pred_coeff_msg.y_coeff = y_coeff;
+        // obj_pred_coeff_msg.z_coeff = z_coeff;
 
         for (int i =0; i < pred_result -> prediction.rows(); i++){
             traj_prediction::tracked_obj pred_obj_msg;
-            geometry_msgs::Point point;
             pred_obj_msg.object_id = obj_id; 
+            geometry_msgs::Point point;
+            geometry_msgs::Point acc;
+            geometry_msgs::Point vel;
+
+
+            traj_prediction::coeff x_coeff;
+            traj_prediction::coeff y_coeff;
+            traj_prediction::coeff z_coeff;
+
+            vel.x = pred_result->x_beta(1,0);
+            vel.y = pred_result->y_beta(1,0);
+            vel.z = pred_result->z_beta(1,0);
+
+            if (pred_poly_order == 1){
+                acc.x = 0;
+                acc.y = 0;
+                acc.z = 0;
+            }
+            else{
+                acc.x =pred_result->x_beta(2,0);
+                acc.y =pred_result->y_beta(2,0);
+                acc.z =pred_result->z_beta(2,0);
+            }            
+
             point.x = pred_result->prediction(i,0);
             point.y = pred_result->prediction(i,1);
             point.z = pred_result->prediction(i,2);
             pred_obj_msg.point = point;
+            pred_obj_msg.acc = acc;
+            pred_obj_msg.vel = vel;
             pred_obj_msg.header.stamp = pred_result->prediction_time;
             pred_obj_msg.time_increment=  pred_result -> prediction(i,3);
             obj_pred_arr_msg.tracked_obj_arr.push_back(pred_obj_msg);
         }
 
         obj_trajectory_pub.publish(obj_pred_arr_msg);
-        obj_pred_coeff_pub.publish(obj_pred_coeff_msg);
+        // obj_pred_coeff_pub.publish(obj_pred_coeff_msg);
         delete pred_result;
     }
 
