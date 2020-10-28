@@ -281,11 +281,11 @@ class pc_process{
         return inst_pos_ptr;
     }
 
-    //Transform detected object from lidar frame to global frame
+    //Transform detected object f[rom lidar frame to global frame
     geometry_msgs::Point apply_trans(instance_pos* poses){
         Eigen::MatrixXd obj_pose_lidar_frame(4, 1);
         Eigen::MatrixXd obj_pose_global_frame(4, 1);
-        obj_pose_lidar_frame << -poses->y , poses->x, -poses->z ,1;
+        obj_pose_lidar_frame << poses->x , -poses->y, -poses->z ,1;
         obj_pose_global_frame = Trans * obj_pose_lidar_frame;
         geometry_msgs::Point point;
         point.x = obj_pose_global_frame(0);
@@ -311,6 +311,7 @@ class pc_process{
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
+        cout<<"New call back" << endl;
         //loop through all bounding boxes
         for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
             // instance ID of the object
@@ -319,8 +320,7 @@ class pc_process{
 
             // instance already being tracked and tacklet died, delete the obj
             if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-                cout << "case 1 " << endl;
-                cout << "dead tracklet obj_indx" << obj_indx<< endl;
+                cout << "Deleted tracklet " << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
                 instance_pos_dict.erase(obj_indx);
                 delete inst_pos_ptr;
@@ -328,9 +328,8 @@ class pc_process{
 
             // instance already being tracked, tacklet still active
             else if (instance_pos_dict.count(obj_indx) && bb.label!=-1){
-                // cout << "case 2 " << endl;
                 if (get_points_in_bb(bb)==true)
-                {
+                {   cout << " Update old tracket " << obj_indx<< endl; 
                     cluster();
                     //get position of the tracket 
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -339,10 +338,9 @@ class pc_process{
             }
 
             //instance not being tracked yet. 
-            else if (!instance_pos_dict.count(obj_indx)){
-                cout << "case 3" << endl;
-                cout << " added new tracket " << obj_indx<< endl; 
+            else if (!instance_pos_dict.count(obj_indx) && bb.label!=-1 ){
 		        if (get_points_in_bb(bb)==true){
+                    cout << " added new tracket " << obj_indx<< endl; 
                     cluster();
                     //get position of the tracklet
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -350,6 +348,7 @@ class pc_process{
                 }
             }
         }
+        cout<<"" << endl;
     
     } 
 
@@ -358,6 +357,16 @@ class pc_process{
         point_cloud_msg = msg;
         crop_cloud(point_cloud_msg);
         publisher();
+        
+        
+        ///////////////////////////////////////////create fake obstacle just for testing purpose
+        // instance_pos* fake_obstacle = new instance_pos();
+        // fake_obstacle->x = 1;
+        // fake_obstacle->y = -3;
+        // fake_obstacle->z = 0;
+        // cout << " HERE " <<endl;
+        // instance_pos_dict.insert({69,fake_obstacle});
+        //////////////////////////////////////////////
         
     }
 
