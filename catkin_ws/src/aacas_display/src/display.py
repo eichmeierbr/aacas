@@ -3,6 +3,7 @@
 import rospy
 import numpy as np
 from sensor_msgs.msg import Joy
+from lidar_process.msg import tracked_obj_arr
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 # from scipy.spatial.transform import Rotation as R
 # from dji_m600_sim.srv import SimDroneTaskControl
@@ -15,6 +16,7 @@ from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 # pip install pyqtgraph
 import sys
+
 
 
 class Objects:
@@ -41,6 +43,7 @@ class vectDisplay:
         self.quat = Quaternion()
         self.pos_pt = Point()
         self.is_safe = True
+        self.detections = []
 
         # Publisher Information
         #vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
@@ -50,6 +53,8 @@ class vectDisplay:
         #self.pos_ctrl_pub_ = rospy.Publisher(pos_ctrl_pub_name, Joy, queue_size=10)
 
         # Subscriber Information
+
+        rospy.Subscriber(rospy.get_param('obstacle_trajectory_topic'), tracked_obj_arr, self.updateDetections, queue_size=1) 
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
@@ -73,6 +78,27 @@ class vectDisplay:
         self.yaw = yaw
 
 
+    def updateDetections(self, msg):
+        # in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
+        in_detections = msg.tracked_obj_arr
+        vect_lst = []
+        for obj in in_detections:
+            # newObj = Objects()
+            
+            newObj = [obj.point.x,obj.point.y]
+            # print(obj)
+            # print(newObj)
+            # newObj.velocity = Point(0,0,0)
+            # newObj.id = obj.object_id
+            # newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
+            vect_lst.append(newObj)
+            # print(len(self.detection))
+        # print(self.detections,"\n")
+        # print(len(vect_lst))
+        self.detections = vect_lst
+        # print(self.detections[0])
+
+
 
     def yaw_pitch_roll(self, q):
         q0, q1, q2, q3 = q
@@ -93,7 +119,32 @@ class vectDisplay:
         return yaw, pitch, roll
 
         
+def smooth(onew,oold):
+    osmooth = (onew*3+oold*1)/4
+    
+    return osmooth
 
+def smooth_obj(a,old_detect,ratio):
+    ratio = 0.6
+    
+    # print(a)
+    
+    for i in range(min(len(a),len(old_detect))):
+        if len(a[i])==len(old_detect[i]):
+            big = np.ones(len(a))*ratio
+            small = np.ones(len(a))*(1-ratio)
+        # if a[i,0]<old_detect[i,0]+1 and a[i,0]>old_detect[i,0]-1:
+            a[i] = np.multiply(a[i],ratio)+np.multiply(old_detect[i],(1-ratio))
+            print(a[i])
+        # print("hi")
+    #     smoothx = (newx*big+oldx*small)/100
+
+    # if newy.shape==oldy.shape:
+    #     smoothy = (newy*big+oldy*small)/100
+        # print("")
+    
+    # return osmooth
+    return a
 
 def make_points(field):
     a = field.yaw
@@ -102,11 +153,69 @@ def make_points(field):
     x3 = [field.vel[0],field.vel[1],0]
     corrected = np.dot(x3,mat)
     # print(corrected)
-    x = [0,corrected[1]*2]
+    x = [0,-corrected[1]*2]
     y = [0,corrected[0]*2]
+
+
+
     
 
     return x,y
+
+def get_obj(field):
+    a = field.detections
+    our_x = field.pos[0]
+    our_y = field.pos[1]
+    old_detect = a
+
+
+    x = [0,0]
+    y = [0,0]
+    for i in range(len(a)):
+        ith_detection = a[i]
+        x.append((ith_detection[0]-our_x)/1)
+        y.append((ith_detection[1]-our_y)/1)
+
+    o = field.yaw
+    mat = np.array([[np.cos(o),-np.sin(o),0],[np.sin(o),np.cos(o),0],[0,0,1]])
+    x3 = np.append(np.append(np.array(x),np.array(y)),np.ones(len(x)))
+    x3 = x3.reshape(3,len(x))
+    corrected = np.dot(x3.T,mat)
+    xnew = -corrected[:,1]
+    ynew = corrected[:,0]
+
+    
+    return xnew,ynew,o,old_detect
+
+def update_obj(field,oold,old_detect):
+
+    a = field.detections
+    our_x = field.pos[0]
+    our_y = field.pos[1]
+    # a = smooth_obj(a,old_detect,.9)
+    # a0,a1 = smooth_obj(a[:,0],a[:,1],oldx,oldy,.9)
+    # oldx = a[:,0]
+    # oldy = a[:,1]
+    old_detect = a
+
+
+    x = [0,0]
+    y = [0,0]
+    for i in range(len(a)):
+        ith_detection = a[i]
+        x.append((ith_detection[0]-our_x)/1)
+        y.append((ith_detection[1]-our_y)/1)
+
+    o = smooth(field.yaw,oold)
+    mat = np.array([[np.cos(o),-np.sin(o),0],[np.sin(o),np.cos(o),0],[0,0,1]])
+    x3 = np.append(np.append(np.array(x),np.array(y)),np.ones(len(x)))
+    x3 = x3.reshape(3,len(x))
+    corrected = np.dot(x3.T,mat)
+    xnew = -corrected[:,1]
+    ynew = corrected[:,0]
+
+    
+    return xnew,ynew,o,old_detect
 
 def update_points(field):
     
@@ -119,6 +228,8 @@ def update_points(field):
     # print(corrected)
     x = [0,-corrected[1]*20]
     y = [0,corrected[0]*20]
+
+
 
     return x,y
 
@@ -167,6 +278,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.constant_background()
+        # 
+        # self.objects_display()
+        self.fov()
         self.velocity_vector()
         # self.constant_foreground()
 
@@ -194,6 +308,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pen = pg.mkPen(color=(255, 255, 255), width=self.step, style=QtCore.Qt.SolidLine)
         self.white_circle =  self.graphWidget.plot(circlex, circley, pen=pen)
 
+    def fov(self):
         # FOV of camera
         x,y = fov(degree=30)
         pen = pg.mkPen(color=(220, 220, 220), width=self.step, style=QtCore.Qt.SolidLine)
@@ -241,10 +356,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
         rospy.loginfo("DISPLAY")
         self.x,self.y = make_points(self.field)
+        self.ox,self.oy,self.yaw,self.old_detect = get_obj(self.field)
+
+        pen = pg.mkPen(color=(255, 255, 255), width=0, style=QtCore.Qt.SolidLine)
+        self.data_line2 =  self.graphWidget.plot(self.ox,self.oy, name="Flight Direction",symbolSize=30, pen=pen,symbol='o')  #, symbol='<', symbolSize=30, symbolBrush=('b'))
+
 
         pen = pg.mkPen(color=(255, 0, 0), width=int(self.width/100), style=QtCore.Qt.SolidLine)
         self.data_line1 =  self.graphWidget.plot(self.x, self.y, name="Flight Direction", pen=pen)  #, symbol='<', symbolSize=30, symbolBrush=('b'))
+
         
+
+     
 
         # needed to update plot efficiently
         self.timer = QtCore.QTimer()
@@ -252,11 +375,43 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self.update_plot_data)
         self.timer.start()
 
+    # def objects_display(self):
+
+        
+    #     self.field = vectDisplay()
+    
+    
+
+    #     # rospy.sleep(2)
+
+    #     rospy.loginfo("DISPLAY")
+    #     self.ox,self.oy,self.yaw = get_obj(self.field)
+
+    #     pen = pg.mkPen(color=(255, 255, 255), width=int(self.width/100), style=QtCore.Qt.SolidLine)
+    #     self.data_line2 =  self.graphWidget.plot(self.ox,self.oy, name="Flight Direction",symbolSize=30, pen=pen,symbol='o')  #, symbol='<', symbolSize=30, symbolBrush=('b'))
+
+        
+
+    #     # needed to update plot efficiently
+    #     self.timer = QtCore.QTimer()
+    #     self.timer.setInterval(10)
+    #     self.timer.timeout.connect(self.update_obj_data)
+    #     self.timer.start()
+
     def update_plot_data(self):
         self.x,self.y = update_points(self.field)
+        self.ox,self.oy,self.yaw,self.old_detect = update_obj(self.field,self.yaw,self.old_detect)
         # self.x = [0,self.field.vel[0]]
         # self.y = [0,self.field.vel[1]]
+        self.data_line2.setData(self.ox, self.oy)
         self.data_line1.setData(self.x, self.y)
+        
+    
+    # def update_obj_data(self):
+    #     self.ox,self.oy,self.yaw = update_obj(self.field,self.yaw)
+    #     # self.x = [0,self.field.vel[0]]
+    #     # self.y = [0,self.field.vel[1]]
+    #     self.data_line2.setData(self.ox, self.oy)
 
 
 
