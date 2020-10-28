@@ -117,7 +117,7 @@ def update_points(field):
     x3 = [field.vel[0],field.vel[1],1]
     corrected = np.dot(x3,mat)
     # print(corrected)
-    x = [0,corrected[1]*20]
+    x = [0,-corrected[1]*20]
     y = [0,corrected[0]*20]
 
     return x,y
@@ -237,7 +237,7 @@ class MainWindow(QtWidgets.QMainWindow):
     
     
 
-        rospy.sleep(2)
+        # rospy.sleep(2)
 
         rospy.loginfo("DISPLAY")
         self.x,self.y = make_points(self.field)
