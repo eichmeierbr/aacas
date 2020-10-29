@@ -2,6 +2,8 @@
 #include <yolov3_sort/BoundingBox.h>
 #include <yolov3_sort/BoundingBoxes.h>
 #include "geometry_msgs/Point.h"
+#include "geometry_msgs/QuaternionStamped.h"
+#include "geometry_msgs/PointStamped.h"
 
 // PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
@@ -43,6 +45,7 @@ struct instance_pos{
     int object_label;
 };
 
+// The map that stores the position of detected objects. Key:object_id. Value:Object position
 unordered_map<int ,instance_pos*> instance_pos_dict;
 
 class pc_process{
@@ -59,6 +62,8 @@ class pc_process{
 
     ros::Subscriber cloud_sub;
     ros::Subscriber bb_sub;
+    ros::Subscriber drone_pos_sub;
+    ros::Subscriber drone_orient_sub;
     ros::Publisher tracked_obj_pub;
 
     // Input Cloud
@@ -72,8 +77,9 @@ class pc_process{
     // 3D point of the clustered cloud in bb
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster;
     
-    
-    
+    //lidar frame to global frame transformation
+    Eigen::Matrix4d Trans = Eigen::MatrixXd::Identity(4, 4);
+
     Eigen:: MatrixXf intrinsics;
     Eigen:: MatrixXf extrinsics; 
     Eigen:: MatrixXf camera_matrix;
@@ -97,6 +103,8 @@ class pc_process{
         n.getParam("tz", tz);
         n.getParam("buffer", buffer);
 
+        drone_pos_sub = n.subscribe("/dji_sdk/local_position", 10, &pc_process::drone_pos_cb,this);
+        drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &pc_process::drone_orient_cb,this);
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
@@ -196,7 +204,6 @@ class pc_process{
     
     
     void cluster(){
-
                 pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
                 pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
                 tree->setInputCloud (cloud_in_bb);
@@ -252,9 +259,6 @@ class pc_process{
     }
 
 
-
-
-
     instance_pos* get_pos(int object_label){
         instance_pos* inst_pos_ptr = new instance_pos();
         float x_avg = 0;
@@ -277,17 +281,26 @@ class pc_process{
         return inst_pos_ptr;
     }
 
+    //Transform detected object f[rom lidar frame to global frame
+    geometry_msgs::Point apply_trans(instance_pos* poses){
+        Eigen::MatrixXd obj_pose_lidar_frame(4, 1);
+        Eigen::MatrixXd obj_pose_global_frame(4, 1);
+        obj_pose_lidar_frame << poses->x , -poses->y, -poses->z ,1;
+        obj_pose_global_frame = Trans * obj_pose_lidar_frame;
+        geometry_msgs::Point point;
+        point.x = obj_pose_global_frame(0);
+        point.y = obj_pose_global_frame(1);
+        point.z = obj_pose_global_frame(2);
+        return point;
+    }
 
     void publisher(){
         lidar_process::tracked_obj_arr tracked_objs;
         for (auto const& x : instance_pos_dict)
         {           
             lidar_process::tracked_obj tracked_obj_msg;
-            geometry_msgs::Point point;
             tracked_obj_msg.object_id = x.first; 
-            point.x = x.second ->x;
-            point.y = x.second ->y;
-            point.z = x.second ->z;
+            geometry_msgs::Point point = apply_trans(x.second);
             tracked_obj_msg.point = point;
             tracked_obj_msg.header.stamp = ros::Time::now();
             tracked_obj_msg.object_label = x.second -> object_label;
@@ -298,7 +311,7 @@ class pc_process{
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
-                
+        cout<<"New call back" << endl;
         //loop through all bounding boxes
         for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
             // instance ID of the object
@@ -307,8 +320,7 @@ class pc_process{
 
             // instance already being tracked and tacklet died, delete the obj
             if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-                cout << "case 1 " << endl;
-                cout << "dead tracklet obj_indx" << obj_indx<< endl;
+                cout << "Deleted tracklet " << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
                 instance_pos_dict.erase(obj_indx);
                 delete inst_pos_ptr;
@@ -316,9 +328,8 @@ class pc_process{
 
             // instance already being tracked, tacklet still active
             else if (instance_pos_dict.count(obj_indx) && bb.label!=-1){
-                // cout << "case 2 " << endl;
                 if (get_points_in_bb(bb)==true)
-                {
+                {   cout << " Update old tracket " << obj_indx<< endl; 
                     cluster();
                     //get position of the tracket 
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -327,10 +338,9 @@ class pc_process{
             }
 
             //instance not being tracked yet. 
-            else if (!instance_pos_dict.count(obj_indx)){
-                cout << "case 3" << endl;
-                cout << " added new tracket " << obj_indx<< endl; 
+            else if (!instance_pos_dict.count(obj_indx) && bb.label!=-1 ){
 		        if (get_points_in_bb(bb)==true){
+                    cout << " added new tracket " << obj_indx<< endl; 
                     cluster();
                     //get position of the tracklet
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -338,17 +348,31 @@ class pc_process{
                 }
             }
         }
+        cout<<"" << endl;
     
     } 
 
-
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;
-        
         crop_cloud(point_cloud_msg);
-
         publisher();
         
+    }
+
+    void drone_orient_cb(const::geometry_msgs::QuaternionStamped msg){
+        Eigen::Quaterniond q;
+        q.x() = msg.quaternion.x; 
+        q.y() = msg.quaternion.y; 
+        q.z() = msg.quaternion.z; 
+        q.w() = msg.quaternion.w; 
+        Trans.block<3,3>(0,0) = q.normalized().toRotationMatrix();
+    }
+
+    void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
+        // Eigen::Vector3d T;
+        Eigen::MatrixXd  T(3, 1);
+        T << msg.point.x , msg.point.y, msg.point.z;
+        Trans.block<3,1>(0,3) = T;
     }
 
 
@@ -356,13 +380,10 @@ class pc_process{
 
 
 
-
-
-  
-  int main (int argc, char** argv)
-  {
-    // Initialize ROS
-    ros::init (argc, argv, "lidar_process_node");
-    pc_process pc_processer; 
-    ros::spin ();
-  }
+int main (int argc, char** argv)
+{
+// Initialize ROS
+ros::init (argc, argv, "lidar_process_node");
+pc_process pc_processer; 
+ros::spin ();
+}
