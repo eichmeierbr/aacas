@@ -27,13 +27,15 @@
 #include <vector>
 #include <typeinfo> 
 #include <unordered_map>
-#include<cmath>
+#include <cmath>
 #include <fstream>
 #include <lidar_process/tracked_obj.h>
 #include <lidar_process/tracked_obj_arr.h>
 #include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
 
+// #include <pcl/visualization/cloud_viewer.h>
+// pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -43,6 +45,7 @@ struct instance_pos{
     float avg;
     float std;
     int object_label;
+    int object_id;
 };
 
 // The map that stores the position of detected objects. Key:object_id. Value:Object position
@@ -55,7 +58,7 @@ class pc_process{
     float tz;
     float buffer;
 
-    sensor_msgs::PointCloud2 pub_cloud;
+    sensor_msgs::PointCloud2 pub_cropped_cloud;
     yolov3_sort::BoundingBox bb;
     yolov3_sort:: BoundingBoxes bbox_msg;
     sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
@@ -65,7 +68,7 @@ class pc_process{
     ros::Subscriber drone_pos_sub;
     ros::Subscriber drone_orient_sub;
     ros::Publisher tracked_obj_pub;
-
+    ros::Publisher cropped_cloud_pub;
     // Input Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
     // Cropped Cloud
@@ -108,7 +111,7 @@ class pc_process{
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
-
+        cropped_cloud_pub = n.advertise<sensor_msgs::PointCloud2> ("cropped_cloud", 1);
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
                     0.0, 575.2453, 246.5657, 
@@ -128,13 +131,58 @@ class pc_process{
         convert_to_pcl(msg);
         pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         tmp_cropped_cloud->is_dense = true;
+
+
+
+
+
+
+        // ////////////////////Attempt to filter out ground plane
+        // Create the segmentation object for the planar model and set all the parameters
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::SACSegmentation<pcl::PointXYZ> seg;
+        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
+        pcl::PCDWriter writer;
+        seg.setOptimizeCoefficients (true);
+        seg.setModelType (pcl::SACMODEL_PLANE);
+        seg.setMethodType (pcl::SAC_RANSAC);
+        seg.setMaxIterations (100);
+        seg.setDistanceThreshold (0.02);
+
+        int i=0, nr_points = (int) input_cloud->size ();
+        if (inliers->indices.size() != 0)
+        {
+            // Segment the largest planar component from the remaining cloud
+        seg.setInputCloud (input_cloud);
+        seg.segment (*inliers, *coefficients);
+        // Extract the planar inliers from the input cloud
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud (input_cloud);
+        extract.setIndices (inliers);
+        extract.setNegative (false);
+
+        // Get the points associated with the planar surface
+        extract.filter (*cloud_plane);
+        std::cout << "PointCloud representing the planar component: " << cloud_plane->size () << " data points." << std::endl;
+
+        // Remove the planar inliers, extract the rest
+        extract.setNegative (true);
+        extract.filter (*cloud_f);
+        *input_cloud = *cloud_f;
+        }   
+        // //////////////////////////
+
+
+
         for (std::size_t i = 0; i < input_cloud->points.size(); ++i)
             {   
                 //Flipping the lidar coordinates to adjust for the upside down velodyne installation
                 float x = input_cloud->points[i].x;
                 float y = input_cloud->points[i].y;
                 float z = input_cloud->points[i].z;
-                if ((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)){    
+                if (((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)) && sqrt(pow(x,2)+pow(y,2)) <= 10) {    
                     pcl::PointXYZ point;
                     point.x = x;
                     point.y = y;
@@ -142,7 +190,9 @@ class pc_process{
                     tmp_cropped_cloud->points.push_back(point);
                 }
             }
+
             this->cropped_cloud = tmp_cropped_cloud;
+            // pcl::toROSMsg(*tmp_cropped_cloud,pub_cropped_cloud);
         }
 
     bool get_points_in_bb(yolov3_sort::BoundingBox bb){
@@ -204,10 +254,10 @@ class pc_process{
     
     
     void cluster(){
-                pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>) ;    
                 pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
                 tree->setInputCloud (cloud_in_bb);
-                        std::vector<pcl::PointIndices> cluster_indices;
+                std::vector<pcl::PointIndices> cluster_indices;
                 pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
                 ec.setClusterTolerance (0.2); // 2cm
                 ec.setMinClusterSize (5);
@@ -215,9 +265,8 @@ class pc_process{
                 ec.setSearchMethod (tree);
                 ec.setInputCloud(cloud_in_bb);
                 ec.extract (cluster_indices);
-
+                //Within the bounding box, find the cluster that is closer to the velodyne
                 if (cluster_indices.size() > 0){
-
                     int min_depth = 0;
                     int min_index = 0;
                     for (int i =0; i< cluster_indices.size();i++){
@@ -241,6 +290,42 @@ class pc_process{
                         }
                     
                     this->cloud_cluster = tmp_cloud_cluster;
+
+                    ///////////////////////////////////Visuallization
+                    // // Adding grid points
+                    // pcl::PointCloud<pcl::PointXYZ>::Ptr grid_points(new pcl::PointCloud<pcl::PointXYZ>);
+                    // for (int i = -4; i < 6; i++){
+                    //     for (int j=3; j < 10;j++){
+                    //         pcl::PointXYZ point;
+                    //         point.x = j;
+                    //         point.y = i;
+                    //         point.z = 1;
+                    //         grid_points->points.push_back(point);
+                    //     }
+                    // }
+                    
+                    // viewer->setBackgroundColor (0, 0, 0);
+                    // //background points
+                    // viewer->removePointCloud("all_points");
+                    // viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "all_points");
+                    // //Grid Points
+                    // viewer->removePointCloud("grid_points");
+                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr grid_points);
+                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> grid_color (grid_points, 0, 255, 0);
+                    // viewer->addPointCloud<pcl::PointXYZ> (grid_points, grid_color, "grid_points");
+                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "grid_points");
+                    // viewer->removePointCloud("cloud_cluster");
+                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr tmp_cloud_cluster);
+                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_color (tmp_cloud_cluster, 255, 0, 0);
+                    // viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_cluster, single_color, "cloud_cluster");
+                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "cloud_cluster");
+                    // // viewer->addCoordinateSystem (1.0);
+                    // viewer->spinOnce (100);
+                    //////////////////////////////////////////////////////////////////////
+
+
+
+
                 }
 
     }

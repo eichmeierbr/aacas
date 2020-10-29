@@ -170,7 +170,7 @@ class traj_predictor{
         Eigen::MatrixXf T_pred(interlopated_pnts,1);
 
         for (int i =0 ; i < interlopated_pnts; i++){
-            float time_stamp = (float)(secs_into_future/(float)interlopated_pnts)*(i+1); 
+            float time_stamp = (float)(secs_into_future/(float)interlopated_pnts)*(i); 
             T_pred(i,0) = time_stamp;
             for (int j=0; j <= order ;j++){
                 future_T(i,j) = pow(time_stamp, j);
