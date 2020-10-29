@@ -26,8 +26,6 @@ add_message_files(
     FILES
     tracked_obj.msg
     tracked_obj_arr.msg
-    coeff.msg
-    tracked_obj_coeff.msg
 )
 
 generate_messages(
