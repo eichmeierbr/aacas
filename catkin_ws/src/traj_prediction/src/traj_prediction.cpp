@@ -78,39 +78,6 @@ class traj_predictor{
 
     void publisher( prediction_result* pred_result, int obj_id){
         traj_prediction::tracked_obj_arr obj_pred_arr_msg;
-        
-        // traj_prediction::tracked_obj_coeff obj_pred_coeff_msg;
-        // obj_pred_coeff_msg.object_id = obj_id; 
-        // obj_pred_coeff_msg.header.stamp = pred_result->prediction_time;
-
-        // traj_prediction::coeff x_coeff;
-        // traj_prediction::coeff y_coeff;
-        // traj_prediction::coeff z_coeff;
-        // cout  << pred_result->x_beta(1,0)<< endl;
-
-        // x_coeff.vel_coeff = pred_result->x_beta(1,0);
-        // x_coeff.const_coeff =pred_result->x_beta(0,0);
-
-        // y_coeff.vel_coeff = pred_result->y_beta(1,0);
-        // y_coeff.const_coeff =pred_result->y_beta(0,0);
-
-        // z_coeff.vel_coeff = pred_result->z_beta(1,0);
-        // z_coeff.const_coeff =pred_result->z_beta(0,0);
-
-        // if (pred_poly_order == 1){
-        //     x_coeff.acc_coeff = 0;
-        //     y_coeff.acc_coeff = 0;
-        //     z_coeff.acc_coeff = 0;
-        // }
-        // else{
-        //     x_coeff.acc_coeff =pred_result->x_beta(2,0);
-        //     y_coeff.acc_coeff =pred_result->y_beta(2,0);
-        //     z_coeff.acc_coeff =pred_result->z_beta(2,0);
-        // }
-
-        // obj_pred_coeff_msg.x_coeff = x_coeff;
-        // obj_pred_coeff_msg.y_coeff = y_coeff;
-        // obj_pred_coeff_msg.z_coeff = z_coeff;
 
         for (int i =0; i < pred_result -> prediction.rows(); i++){
             traj_prediction::tracked_obj pred_obj_msg;
