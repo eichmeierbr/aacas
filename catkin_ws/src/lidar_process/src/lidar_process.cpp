@@ -352,21 +352,10 @@ class pc_process{
     
     } 
 
-
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;
         crop_cloud(point_cloud_msg);
         publisher();
-        
-        
-        ///////////////////////////////////////////create fake obstacle just for testing purpose
-        // instance_pos* fake_obstacle = new instance_pos();
-        // fake_obstacle->x = 1;
-        // fake_obstacle->y = -3;
-        // fake_obstacle->z = 0;
-        // cout << " HERE " <<endl;
-        // instance_pos_dict.insert({69,fake_obstacle});
-        //////////////////////////////////////////////
         
     }
 
