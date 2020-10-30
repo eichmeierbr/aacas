@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+  <param name="pred_pnt_thresh" type="int" value="40" />
+  <param name="pos_array_time_span" type="int" value="5" />
+  <param name="pred_poly_order" type="int" value="2" />
+  <node name="traj_prediction_node" pkg="traj_prediction" type="traj_prediction_node"  output ="screen" />
+</launch>

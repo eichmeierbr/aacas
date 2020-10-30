@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
-from lidar_process.msg import tracked_obj, tracked_obj_arr
+from traj_prediction.msg import tracked_obj, tracked_obj_arr
 from aacas_detection.srv import QueryDetections, QueryDetectionsResponse
 import copy
 
