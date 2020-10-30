@@ -3,12 +3,12 @@
 import rospy
 import numpy as np
 from std_msgs.msg import Float32, UInt8
-from sensor_msgs.msg import Joy, NavSatFix, BatteryState
+from sensor_msgs.msg import Joy, NavSatFix, BatteryState, Imu
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 from dji_m600_sim.srv import SimDroneTaskControl
 from dji_sdk.srv import DroneTaskControl, SDKControlAuthority, SetLocalPosRef
 from aacas_detection.srv import QueryDetections
-from lidar_process.msg import tracked_obj, tracked_obj_arr
+from traj_prediction.msg import tracked_obj, tracked_obj_arr
 
 
 
@@ -31,6 +31,7 @@ class vectFieldController:
 
         # Waypoint params
         self.waypoints = waypoints
+        #self.h_max = np.max(np.array(self.waypoints)[:, 2]) + 0.5
         self.goalPt = 0
         self.goal = self.waypoints[self.goalPt]
         self.switch_dist =  rospy.get_param('switch_waypoint_distance')
@@ -88,6 +89,9 @@ class vectFieldController:
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
+        rospy.Subscriber('/height_above_takeoff', Float32, self.height_above_takeoff_cb)
+        rospy.Subscriber('/imu', Imu, self.imu_cb)
+
 
         tracked_obj_topic = rospy.get_param('obstacle_trajectory_topic')
         rospy.Subscriber(tracked_obj_topic, tracked_obj_arr, self.updateDetections, queue_size=1)
@@ -113,7 +117,7 @@ class vectFieldController:
             rospy.Subscriber('/dji_sdk/gps_position', NavSatFix, self.gps_position_cb)
             rospy.Subscriber('/dji_sdk/flight_status', UInt8, self.flight_status_cb)
             rospy.Subscriber('/dji_sdk/battery_state', BatteryState, self.battery_state_cb)
-            rospy.Subscriber('/dji_sdk/height_above_takeoff', Float32, self.height_above_takeoff_cb)
+            #rospy.Subscriber('/dji_sdk/height_above_takeoff', Float32, self.height_above_takeoff_cb)
             rospy.Subscriber('/dji_sdk/angular_velocity_fused', Vector3Stamped, self.angular_vel_cb)
             rospy.Subscriber('/dji_sdk/acceleration_ground_fused', Vector3Stamped, self.acceleration_cb)
 
@@ -149,6 +153,12 @@ class vectFieldController:
     def acceleration_cb(self, msg):
         vec = msg.vector
         self.acceleration = np.array([vec.x, vec.y, vec.z])   
+
+    def imu_cb(self, msg):
+        lin = msg.linear_acceleration
+        ang = msg.angular_velocity
+        self.acceleration = np.array([lin.x, lin.y, lin.z])
+        self.angular_vel = np.array([ang.x, ang.y, ang.z])
 
     def position_callback(self, msg):
         pt = msg.point
@@ -428,32 +438,45 @@ class vectFieldController:
         elif not velocity <= 5:
             rospy.logerr("Unsafe Velocity: V=%.2f", velocity)
 
-        # elif self.rc_axes check:
-        #     pass
+        elif abs(self.angular_vel[0]) > 0.01 or abs(self.angular_vel[1])  > 0.01 or abs(self.angular_vel[2]) > 3.0:
+            rospy.logerr("Angular velocity too large, current angular velocities: %.2f, %.2f, %.2f", \
+                self.angular_vel[0], self.angular_vel[1], self.angular_vel[2])
 
-        # elif self.gps_health check:
-        #     pass
-        
+        elif abs(self.acceleration[0]) > 3.0 or abs(self.acceleration[1])  > 3.0 or abs(self.angular_vel[2]) > 10.0:
+            rospy.logerr("Acceleration too large, current accelerations: %.2f, %.2f, %.2f", \
+                self.acceleration[0], self.acceleration[1], self.acceleration[2])
+
+        #elif self.height_above_takeoff > self.h_max:
+        #    rospy.logerr("Drone flying too high, current height: %.2f", self.height_above_takeoff)
+
+        #elif not self.rc_axes:
+        #    rospy.logerr("Could not read remote control axes")
+
+        #elif self.gps_health <= 3:
+        #    rospy.logerr("Not Enough Satellites, current satellites: %d", self.gps_health)
+
+        #elif self.battery_state.voltage < 21.0:
+        #    rospy.logerr("Battery voltage too low, current voltage: %.2fV", self.battery_state.voltage)
+
+        #elif self.battery_state.power_supply_health != 1:
+            """
+            UNKNOWN=0
+            GOOD=1
+            OVERHEAT=2
+            DEAD=3
+            OVERVOLTAGE=4
+            UNSPEC_FAILURE=5
+            COLD=6
+            WATCHDOG_TIMER_EXPIRE=7
+            SAFETY_TIMER_EXPIRE=8
+            """
+        #    rospy.logerr("Power supply health condition: %d", self.battery_state.power_supply_health)
+
         # elif self.gps_position check:
-        #     pass
-
-        # elif self.battery_state check:
-        #     pass
-
-        # elif self.height_above_takeoff check:
-        #     pass
-
-        # elif self.angular_vel check:
-        #     pass
-
-        # elif self.acceleration check:
         #     pass
 
         else:
             field.is_safe = True
-        
-
-    
 
     def hoverInPlace(self):
         # Safety hovering
@@ -517,7 +540,7 @@ if __name__ == '__main__':
         field.move()
 
         field.safetyCheck()
-        field.is_safe = True
+        #field.is_safe = True
         rate.sleep()
     
     if field.is_safe: # If the planner exited normally, land
