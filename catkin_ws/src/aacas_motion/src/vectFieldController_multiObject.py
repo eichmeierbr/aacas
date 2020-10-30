@@ -8,7 +8,7 @@ from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, P
 from dji_m600_sim.srv import SimDroneTaskControl
 from dji_sdk.srv import DroneTaskControl, SDKControlAuthority, SetLocalPosRef
 from aacas_detection.srv import QueryDetections
-from lidar_process.msg import tracked_obj, tracked_obj_arr
+from traj_prediction.msg import tracked_obj, tracked_obj_arr
 
 
 
