@@ -7,6 +7,11 @@ object_velocity_noise: 0.3
 object_detection_rate: 0.9
 object_detection_dist: 10.0
 
+# object_position_noise: 0.0
+# object_velocity_noise: 0.0
+# object_detection_rate: 0.99
+# object_detection_dist: 20.0
+
 # Obstacle position parameters
 # ob_start_x: [10]
 # ob_start_y: [0.0]

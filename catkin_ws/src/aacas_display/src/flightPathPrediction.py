@@ -165,7 +165,7 @@ class pathGenerator:
             
             pos = np.array([obs_pos[0], obs_pos[1], 1])
             obst_trans = np.matmul(T_vo, pos)
-            if obst_trans[1] > 0 and obst.distance < self.safe_dist:
+            if obst_trans[1] > -0.5 and obst.distance < self.safe_dist:
                 closeObjects.append(obst)
                 move = True
         return closeObjects, move
@@ -215,8 +215,10 @@ class pathGenerator:
 
         ## TODO Perform integration
         path = np.array(self.pos)
+        dt = 0.1
+        timeHorizon = 10
 
-        for i in range(150):
+        for i in range(int(timeHorizon/dt)):
             self.simDetections()
             velDes = self.getXdes() 
             self.pos += velDes[:3]*0.1
@@ -327,7 +329,8 @@ class pathGenerator:
 
     def simDetections(self):
         self.detections = []
-        in_detections = [[0,10,2]]
+        in_detections = [[0.5,10,2], [-3,10,2], [-1.5,15,2]]
+        # in_detections = [[0.5,10,2]]
         for obj in in_detections:
             newObj = Objects()
             newObj.position = Point(obj[0], obj[1], obj[2])
