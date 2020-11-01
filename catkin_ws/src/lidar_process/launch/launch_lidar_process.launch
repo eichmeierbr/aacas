@@ -4,6 +4,7 @@
   <param name="ty" type="double" value="0.09588" />
   <param name="tz" type="double" value="0.12573" />  
   <param name="buffer" type="double" value="20" />  
+  <param name="detect_range" type="int" value="10" />  
   <node name="lidar_process_node" pkg="lidar_process" type="lidar_process_node"  output ="screen">
   </node>
 

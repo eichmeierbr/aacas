@@ -48,8 +48,6 @@ struct instance_pos{
     int object_id;
 };
 
-// The map that stores the position of detected objects. Key:object_id. Value:Object position
-unordered_map<int ,instance_pos*> instance_pos_dict;
 
 class pc_process{
     private:
@@ -57,11 +55,15 @@ class pc_process{
     float ty;
     float tz;
     float buffer;
+    int detect_range;
 
     sensor_msgs::PointCloud2 pub_cropped_cloud;
     yolov3_sort::BoundingBox bb;
     yolov3_sort:: BoundingBoxes bbox_msg;
     sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
+    // The map that stores the position of detected objects. Key:object_id. Value:Object position
+    unordered_map<int ,instance_pos*> instance_pos_dict;
+    // vector<instance_pos*> instance_pos_dict;
 
     ros::Subscriber cloud_sub;
     ros::Subscriber bb_sub;
@@ -105,12 +107,12 @@ class pc_process{
         n.getParam("ty", ty);
         n.getParam("tz", tz);
         n.getParam("buffer", buffer);
-
+        n.getParam("detect_range", detect_range);
         drone_pos_sub = n.subscribe("/dji_sdk/local_position", 10, &pc_process::drone_pos_cb,this);
         drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &pc_process::drone_orient_cb,this);
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
-        tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
+        tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr2", 1);
         cropped_cloud_pub = n.advertise<sensor_msgs::PointCloud2> ("cropped_cloud", 1);
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
@@ -131,10 +133,6 @@ class pc_process{
         convert_to_pcl(msg);
         pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         tmp_cropped_cloud->is_dense = true;
-
-
-
-
 
 
         // ////////////////////Attempt to filter out ground plane
@@ -174,15 +172,13 @@ class pc_process{
         }   
         // //////////////////////////
 
-
-
         for (std::size_t i = 0; i < input_cloud->points.size(); ++i)
             {   
                 //Flipping the lidar coordinates to adjust for the upside down velodyne installation
                 float x = input_cloud->points[i].x;
                 float y = input_cloud->points[i].y;
                 float z = input_cloud->points[i].z;
-                if (((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)) && sqrt(pow(x,2)+pow(y,2)) <= 10) {    
+                if (((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)) && sqrt(pow(x,2)+pow(y,2)) <= detect_range) {    
                     pcl::PointXYZ point;
                     point.x = x;
                     point.y = y;
@@ -434,8 +430,48 @@ class pc_process{
             }
         }
         cout<<"" << endl;
-    
     } 
+
+    // void publisher(){
+    //     lidar_process::tracked_obj_arr tracked_objs;
+    //     for (auto const& x : instance_pos_dict)
+    //     {           
+    //         lidar_process::tracked_obj tracked_obj_msg;
+    //         tracked_obj_msg.object_id = x -> object_id; 
+    //         geometry_msgs::Point point = apply_trans(x);
+    //         tracked_obj_msg.point = point;
+    //         tracked_obj_msg.header.stamp = ros::Time::now();
+    //         tracked_obj_msg.object_label = x-> object_label;
+    //         tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
+    //     }
+    //     tracked_obj_pub.publish(tracked_objs);
+    // }
+
+    // void bb_cb(const yolov3_sort:: BoundingBoxes msg){
+    //     bbox_msg = msg;
+    //     cout<<"New call back" << endl;
+    //     //loop through all bounding boxes
+    //     instance_pos_dict.clear();
+    //     for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
+
+    //         // instance ID of the object
+    //         yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
+    //         int obj_indx = bb.idx;
+
+    //         // instance already being tracked and tacklet died, delete the obj
+    //         if ( bb.label!=-1){
+    //             if (get_points_in_bb(bb)==true)
+    //                 {   
+    //                     cluster();
+    //                     //get position of the tracket 
+    //                     instance_pos*inst_pos_ptr = get_pos(bb.label);
+    //                     inst_pos_ptr->object_id = obj_indx;
+    //                     instance_pos_dict.push_back(inst_pos_ptr); 
+    //                 }
+    //         }
+    //     }
+    //     cout<<"instance_pos_dict size" << instance_pos_dict.size() << endl;
+    // } 
 
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;

@@ -2,6 +2,6 @@
 <launch>
   <param name="pred_pnt_thresh" type="int" value="15" />
   <param name="pos_array_time_span" type="int" value="2" />
-  <param name="pred_poly_order" type="int" value="2" />
+  <param name="pred_poly_order" type="int" value="1" />
   <node name="traj_prediction_node" pkg="traj_prediction" type="traj_prediction_node"  output ="screen" />
 </launch>
