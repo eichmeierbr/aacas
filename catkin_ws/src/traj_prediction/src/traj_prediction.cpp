@@ -3,8 +3,6 @@
 #include <lidar_process/tracked_obj_arr.h>
 #include <traj_prediction/tracked_obj.h>
 #include <traj_prediction/tracked_obj_arr.h>
-#include <traj_prediction/tracked_obj_coeff.h>
-#include <traj_prediction/coeff.h>
 // Cpp packages
 #include <stdlib.h>
 #include <stdio.h>
@@ -85,11 +83,6 @@ class traj_predictor{
             geometry_msgs::Point point;
             geometry_msgs::Point acc;
             geometry_msgs::Point vel;
-
-
-            traj_prediction::coeff x_coeff;
-            traj_prediction::coeff y_coeff;
-            traj_prediction::coeff z_coeff;
 
             vel.x = pred_result->x_beta(1,0);
             vel.y = pred_result->y_beta(1,0);
