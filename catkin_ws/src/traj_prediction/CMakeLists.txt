@@ -63,7 +63,7 @@ include_directories(
 
 ## Declare a C++ executable
 add_executable(traj_prediction_node src/traj_prediction.cpp)
-add_executable(tf_broadcaster_node src/tf_broadcaster.cpp)
-target_link_libraries(tf_broadcaster_node ${catkin_LIBRARIES})
+# add_executable(tf_broadcaster_node src/tf_broadcaster.cpp)
+# target_link_libraries(tf_broadcaster_node ${catkin_LIBRARIES})
 target_link_libraries(traj_prediction_node ${catkin_LIBRARIES})
 
