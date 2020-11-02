@@ -16,22 +16,22 @@ import torch
 import rospy
 from rospkg import RosPack
 from cv_bridge import CvBridge, CvBridgeError
-from scipy.spatial.transform import Rotation as R
+from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
+
 
 package = RosPack()
 package_path = package.get_path('yolov3_sort')
 
 from sensor_msgs.msg import Image
 from yolov3_sort.msg import BoundingBox, BoundingBoxes
-from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 
 class Tracker():
     def __init__(self):
         self.drone_pos = np.zeros(3)
         self.quat = np.zeros(4)
-        self.prev_trans = np.identity((4,4))
-        self.curr_trans = np.identity((4,4))
-        self.u = np.identity((4,4))
+        self.prev_trans = np.identity(4)
+        self.curr_trans = np.identity(4)
+        self.u = np.identity(4)
         weights_name = rospy.get_param('~weights_name')
         self.weights_path = os.path.join(package_path, 'weights', weights_name)
         if not os.path.isfile(self.weights_path):
@@ -68,8 +68,8 @@ class Tracker():
         self.bridge = CvBridge()
         self.image_topic = rospy.get_param('~image_topic', '/camera/rgb/image_raw')
         self.img_sub = rospy.Subscriber(self.image_topic, Image, self.imageCb, queue_size=1, buff_size = 2**24)
-        self.pos_sub = rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped, self.position_callback, queue_size=1)
-        self.att_sub = rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
+        self.pos_sub = rospy.Subscriber('/dji_sdk/local_position', PointStamped, self.position_callback, queue_size=1)
+        self.att_sub = rospy.Subscriber('/dji_sdk/attitude', QuaternionStamped, self.attitude_callback, queue_size=1)
 
         # Define publisher & topics
         self.tracked_objects_topic = rospy.get_param('~tracked_objects_topic')

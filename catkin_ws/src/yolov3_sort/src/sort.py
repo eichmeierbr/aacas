@@ -82,7 +82,7 @@ class Tracklet():
             self.kf.predict(u)
         else:
             large_u = np.identity(10)
-            large_u[0:3,0:3] = u
+            large_u[0:4,0:4] = u
             self.kf.predict(large_u)
 
     def update(self, yolo_det):
