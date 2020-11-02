@@ -6,7 +6,7 @@ import numpy as np
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion, PoseStamped
 from nav_msgs.msg import Path
-from lidar_process.msg import tracked_obj, tracked_obj_arr
+from traj_prediction.msg import tracked_obj, tracked_obj_arr
 
 
 def moving_average(a, n=3) :
