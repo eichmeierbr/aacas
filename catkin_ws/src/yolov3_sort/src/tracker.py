@@ -16,15 +16,22 @@ import torch
 import rospy
 from rospkg import RosPack
 from cv_bridge import CvBridge, CvBridgeError
+from scipy.spatial.transform import Rotation as R
 
 package = RosPack()
 package_path = package.get_path('yolov3_sort')
 
 from sensor_msgs.msg import Image
 from yolov3_sort.msg import BoundingBox, BoundingBoxes
+from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 
 class Tracker():
     def __init__(self):
+        self.drone_pos = np.zeros(3)
+        self.quat = np.zeros(4)
+        self.prev_trans = np.identity((4,4))
+        self.curr_trans = np.identity((4,4))
+        self.u = np.identity((4,4))
         weights_name = rospy.get_param('~weights_name')
         self.weights_path = os.path.join(package_path, 'weights', weights_name)
         if not os.path.isfile(self.weights_path):
@@ -60,7 +67,9 @@ class Tracker():
         # Define subscriber & callback function
         self.bridge = CvBridge()
         self.image_topic = rospy.get_param('~image_topic', '/camera/rgb/image_raw')
-        self.sub = rospy.Subscriber(self.image_topic, Image, self.imageCb, queue_size=1, buff_size = 2**24)
+        self.img_sub = rospy.Subscriber(self.image_topic, Image, self.imageCb, queue_size=1, buff_size = 2**24)
+        self.pos_sub = rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped, self.position_callback, queue_size=1)
+        self.att_sub = rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
 
         # Define publisher & topics
         self.tracked_objects_topic = rospy.get_param('~tracked_objects_topic')
@@ -71,6 +80,47 @@ class Tracker():
         rospy.loginfo("Launched node for object tracking.")
 
         rospy.spin()
+
+    def attitude_callback(self, msg):
+        q = msg.quaternion
+        self.quat = np.array([q.w, q.x, q.y, q.z])
+        self.update_drone_relative_transform()
+
+    def position_callback(self, msg):
+        pt = msg.point
+        self.drone_pos = np.array([pt.x, pt.y, pt.z])
+        
+
+    def yaw_pitch_roll(self):
+        q0, q1, q2, q3 = self.quat[0],self.quat[1], self.quat[2], self.quat[3]
+        q2sqr = q2 * q2
+        t0 = -2.0 * (q2sqr + q3 * q3) + 1.0
+        t1 = +2.0 * (q1 * q2 + q0 * q3)
+        t2 = -2.0 * (q1 * q3 - q0 * q2)
+        t3 = +2.0 * (q2 * q3 + q0 * q1)
+        t4 = -2.0 * (q1 * q1 + q2sqr) + 1.0
+
+        if t2 > 1.0:        t2 = 1.0
+        if t2 < -1.0:       t2 = -1.0
+
+        pitch = np.arcsin(t2)
+        roll  = np.arctan2(t3, t4)
+        yaw   = np.arctan2(t1, t0)
+
+        return yaw, pitch, roll
+    
+    
+    def update_drone_relative_transform(self):
+        yaw, pitch, roll = self.yaw_pitch_roll()
+        Rx = np.array([[1,0,0],[0,np.cos(roll),-np.sin(roll)],[0,np.sin(roll),np.cos(roll)]])
+        Ry = np.array([[np.cos(pitch),0,np.sin(pitch)],[0,1,0],[-np.sin(pitch),0,np.cos(pitch)]])
+        Rz = np.array([[np.cos(yaw),-np.sin(yaw),0],[np.sin(yaw),np.cos(yaw),0],[0,0,1]])
+        self.prev_trans = self.curr_trans
+        self.curr_trans[0:3,0:3] = np.matmul(Rx, np.matmul(Ry,Rz))
+        self.curr_trans[0:3,3] = self.drone_pos
+        self.u = np.matmul(self.curr_trans , np.linalg.inv(self.prev_trans)) 
+        
+
 
     def imageCb(self, data):
         try:
@@ -129,8 +179,7 @@ class Tracker():
                 if tr.timeout > 2:
                     bbox_msg.label = -1
 
-                else:
-                    bbox_msg.label = tr.label
+                else:                      bbox_msg.label = tr.label
 
                 bbox_msg.xmin = x
                 bbox_msg.ymin = y
@@ -144,7 +193,7 @@ class Tracker():
                     self.tracklets.remove(tr)
 
                 else:
-                    tr.predict()
+                    tr.predict(self.u)
                     #tr.addLength()
                     #rospy.loginfo(str(tr.length))
 
