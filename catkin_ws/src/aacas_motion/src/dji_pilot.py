@@ -213,7 +213,7 @@ class djiPilot:
             velocity = np.sum(self.vel[:2] ** 2)
 
         ## Assume the field is not safe
-        field.is_safe = False
+        self.is_safe = False
 
         #print(np.sum(velocity ** 2))
         ## Write the if statements to enter if something bad happens
@@ -226,9 +226,9 @@ class djiPilot:
         elif not velocity <= 5:
             rospy.logerr("Unsafe Velocity: V=%.2f", velocity)
 
-        elif abs(self.angular_vel[0]) > 0.01 or abs(self.angular_vel[1])  > 0.01 or abs(self.angular_vel[2]) > 3.0:
-            rospy.logerr("Angular velocity too large, current angular velocities: %.2f, %.2f, %.2f", \
-                self.angular_vel[0], self.angular_vel[1], self.angular_vel[2])
+        # elif abs(self.angular_vel[0]) > 0.01 or abs(self.angular_vel[1])  > 0.01 or abs(self.angular_vel[2]) > 3.0:
+            # rospy.logerr("Angular velocity too large, current angular velocities: %.2f, %.2f, %.2f", \
+                # self.angular_vel[0], self.angular_vel[1], self.angular_vel[2])
 
         elif abs(self.acceleration[0]) > 3.0 or abs(self.acceleration[1])  > 3.0 or abs(self.angular_vel[2]) > 10.0:
             rospy.logerr("Acceleration too large, current accelerations: %.2f, %.2f, %.2f", \
@@ -264,7 +264,7 @@ class djiPilot:
         #     pass
 
         else:
-            field.is_safe = True
+            self.is_safe = True
 
     def hoverInPlace(self):
         # Safety hovering
@@ -352,5 +352,5 @@ if __name__ == '__main__':
   except rospy.ROSInterruptException:
         resp1 = pilot.takeoff_service(6)
         resp1 = pilot.authority_service(0)
-    pass
+    # pass
 
