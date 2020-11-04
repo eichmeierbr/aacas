@@ -44,3 +44,4 @@ add_executable(rviz_collision_publisher_no_gazebo src/rviz_collision_publisher_n
 add_executable(tf_broadcaster src/tf_broadcaster.cpp)
 target_link_libraries(rviz_collision_publisher_no_gazebo ${catkin_LIBRARIES})
 target_link_libraries(tf_broadcaster ${catkin_LIBRARIES})
+add_dependencies(rviz_collision_publisher_no_gazebo ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

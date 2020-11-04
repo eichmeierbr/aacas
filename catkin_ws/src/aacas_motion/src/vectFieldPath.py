@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 
 import rospy
+import copy
 import numpy as np
 from std_msgs.msg import Float32, UInt8
-from sensor_msgs.msg import Joy, NavSatFix, BatteryState, Imu
-from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
+from sensor_msgs.msg import Joy, NavSatFix, BatteryState
+from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion, PoseStamped
+from nav_msgs.msg import Path
 from dji_m600_sim.srv import SimDroneTaskControl
 from dji_sdk.srv import DroneTaskControl, SDKControlAuthority, SetLocalPosRef
-from aacas_detection.srv import QueryDetections
-from traj_prediction.msg import tracked_obj, tracked_obj_arr
+from lidar_process.msg import tracked_obj, tracked_obj_arr
 
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 
 class Objects:
@@ -28,10 +34,12 @@ class vectFieldController:
     def __init__(self, waypoints = [[0,0,0]]):
         self.v_max =  rospy.get_param('maximum_velocity')
         self.detections = []
+        self.in_detections = []
+        self.lastPathPub = rospy.Time.now()
+        self.path = []
 
         # Waypoint params
         self.waypoints = waypoints
-        #self.h_max = np.max(np.array(self.waypoints)[:, 2]) + 0.5
         self.goalPt = 0
         self.goal = self.waypoints[self.goalPt]
         self.switch_dist =  rospy.get_param('switch_waypoint_distance')
@@ -53,8 +61,11 @@ class vectFieldController:
 
         # state Information
         self.pos = np.zeros(3)
+        self.curr_pos = np.zeros(3)
         self.vel = np.zeros(3)
+        self.curr_vel = np.zeros(3)
         self.yaw = 0
+        self.curr_yaw = 0
         self.yaw_rate = 0
         self.quat = Quaternion()
         self.pos_pt = Point()
@@ -83,15 +94,14 @@ class vectFieldController:
         self.pos_ctrl_pub_ = rospy.Publisher(pos_ctrl_pub_name, Joy, queue_size=10)
 
         self.goal_pub_ = rospy.Publisher('current_goal', Point, queue_size=10)
+
+        self.future_path_pub_ = rospy.Publisher('future_path', Path, queue_size=10)
         
 
         # Subscriber Information
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
-        rospy.Subscriber('/height_above_takeoff', Float32, self.height_above_takeoff_cb)
-        rospy.Subscriber('/imu', Imu, self.imu_cb)
-
 
         tracked_obj_topic = rospy.get_param('obstacle_trajectory_topic')
         rospy.Subscriber(tracked_obj_topic, tracked_obj_arr, self.updateDetections, queue_size=1)
@@ -117,7 +127,7 @@ class vectFieldController:
             rospy.Subscriber('/dji_sdk/gps_position', NavSatFix, self.gps_position_cb)
             rospy.Subscriber('/dji_sdk/flight_status', UInt8, self.flight_status_cb)
             rospy.Subscriber('/dji_sdk/battery_state', BatteryState, self.battery_state_cb)
-            #rospy.Subscriber('/dji_sdk/height_above_takeoff', Float32, self.height_above_takeoff_cb)
+            rospy.Subscriber('/dji_sdk/height_above_takeoff', Float32, self.height_above_takeoff_cb)
             rospy.Subscriber('/dji_sdk/angular_velocity_fused', Vector3Stamped, self.angular_vel_cb)
             rospy.Subscriber('/dji_sdk/acceleration_ground_fused', Vector3Stamped, self.acceleration_cb)
 
@@ -154,20 +164,14 @@ class vectFieldController:
         vec = msg.vector
         self.acceleration = np.array([vec.x, vec.y, vec.z])   
 
-    def imu_cb(self, msg):
-        lin = msg.linear_acceleration
-        ang = msg.angular_velocity
-        self.acceleration = np.array([lin.x, lin.y, lin.z])
-        self.angular_vel = np.array([ang.x, ang.y, ang.z])
-
     def position_callback(self, msg):
         pt = msg.point
         self.pos_pt = pt
-        self.pos = np.array([pt.x, pt.y, pt.z])
+        self.curr_pos = np.array([pt.x, pt.y, pt.z])
 
     def velocity_callback(self, msg):
         pt = msg.vector
-        self.vel = np.array([pt.x, pt.y, pt.z])
+        self.curr_vel = np.array([pt.x, pt.y, pt.z])
 
     def attitude_callback(self, msg):
         q = msg.quaternion
@@ -175,7 +179,7 @@ class vectFieldController:
 
         qt = [q.w, q.x, q.y, q.z]
         [yaw, pitch, roll] = self.yaw_pitch_roll(qt)
-        self.yaw = yaw
+        self.curr_yaw = yaw
 
 
     def yaw_pitch_roll(self, q):
@@ -199,7 +203,7 @@ class vectFieldController:
 
     ## TODO: Implement in 3D
     ## For Now: 2D Implementation
-    def getXdes(self):
+    def getXdes(self, switchGoal=True):
         velDes = np.zeros(4)
 
         if len(self.waypoints) == 0: return velDes
@@ -254,7 +258,7 @@ class vectFieldController:
             
             pos = np.array([obs_pos[0], obs_pos[1], 1])
             obst_trans = np.matmul(T_vo, pos)
-            if obst_trans[1] > 0 and obst.distance < self.safe_dist:
+            if obst_trans[1] > -0.5 and obst.distance < self.safe_dist:
                 closeObjects.append(obst)
                 move = True
         return closeObjects, move
@@ -323,10 +327,11 @@ class vectFieldController:
         # Check if we have reached the next waypoint. If so, update
         self.changeGoalPt()
         self.v_max =  rospy.get_param('maximum_velocity')
-        
- 
-        # Get velocity vector
-        velDes = self.getXdes() 
+
+        self.resetState()
+
+        velDes = self.getXdes()
+
 
         # Pause to rotate after waypoint
         if (rospy.Time.now() - self.last_waypoint_time).to_sec() < self.waypoint_wait_time:
@@ -339,6 +344,20 @@ class vectFieldController:
         self.vel_ctrl_pub_.publish(joy_out)
 
 
+        if (rospy.Time.now() - self.lastPathPub).to_sec() > 0.5:
+            self.lastPathPub = rospy.Time.now()
+            # publish path
+            self.findPath()
+            self.resetState()
+
+
+
+    def resetState(self):
+        self.yaw = copy.copy(self.curr_yaw)       
+        self.vel = copy.copy(self.curr_vel)       
+        self.pos = copy.copy(self.curr_pos)     
+        self.detections = copy.copy(self.in_detections)
+ 
 
 
     ## TODO: Implement in 3D
@@ -399,15 +418,71 @@ class vectFieldController:
     def updateDetections(self, msg):
         # in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
         in_detections = msg.tracked_obj_arr
-        self.detections = []
+        self.in_detections = []
         for obj in in_detections:
             newObj = Objects()
             newObj.position = obj.point
             newObj.velocity = Point(0,0,0)
             newObj.id = obj.object_id
             newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
-            self.detections.append(newObj)
+            self.in_detections.append(newObj)
             # self.detections = in_detections.detection_array.tracked_obj_arr
+
+
+    def simDetections(self, t):
+        self.detections = []
+        # in_detections = [[0.5,10,2], [-3,10,2], [-1.5,15,2]]
+        # in_detections = [[0.5,10,2]]
+        for obj in self.in_detections:
+            newObj = Objects()
+            newObj.position = obj.position
+            newObj.velocity = obj.velocity
+            newObj.distance = np.linalg.norm([newObj.position.x - self.pos[0], newObj.position.y - self.pos[1], newObj.position.z - self.pos[2]])
+            self.detections.append(newObj)
+
+    
+    def findPath(self):
+        path = []
+        dt = 0.1
+        timeHorizon = 10
+        self.path = []
+
+        # Perform path simulation
+        for t in np.arange(0,timeHorizon, dt):
+            # Append State
+            self.path.append(self.pos)
+
+            velDes = self.getXdes()
+            velError = velDes[:3] - self.vel
+            self.vel += velError * dt
+            self.yaw = np.arctan2(velDes[1], velDes[0])
+            self.pos = self.pos + self.vel[:3]*dt
+            self.simDetections(t)
+
+        # Smooth path
+        self.path = np.array(self.path)
+        xs = moving_average(self.path[:,0], n=5)
+        ys = moving_average(self.path[:,1], n=5)
+        zs = moving_average(self.path[:,2], n=5)
+        self.path = np.vstack((xs,ys,zs)).transpose()
+        self.path = np.vstack((self.curr_pos, self.path))
+
+        for pos in self.path:
+            newPose = PoseStamped()
+            newPose.header.frame_id = 'world'
+            newPose.pose.position = Point(pos[0], pos[1], pos[2])
+            path.append(newPose)
+
+        newPose = PoseStamped()
+        newPose.header.frame_id = 'world'
+        newPose.pose.position = Point(self.pos[0], self.pos[1], self.pos[2])
+        path.append(newPose)
+
+        out = Path()
+        out.poses = path
+        out.header.frame_id = 'world'
+        out.header.stamp = rospy.Time.now()
+        self.future_path_pub_.publish(out)
 
 
     def safetyCheck(self):
@@ -417,12 +492,12 @@ class vectFieldController:
         # y_constraint: [ymin, ymax]
         # Velocity constraint is self.v_max (norm of all directions).
 
-        position = self.pos
+        position = self.curr_pos
 
         if self.is_ready: # finished taking off, aiming for waypoints, then we take z velocity into account.
-            velocity = np.sum(self.vel ** 2)
+            velocity = np.sum(self.curr_vel ** 2)
         else: # if still in takeoff progress, ignore z velocity.
-            velocity = np.sum(self.vel[:2] ** 2)
+            velocity = np.sum(self.curr_vel[:2] ** 2)
 
         ## Assume the field is not safe
         field.is_safe = False
@@ -438,45 +513,32 @@ class vectFieldController:
         elif not velocity <= 5:
             rospy.logerr("Unsafe Velocity: V=%.2f", velocity)
 
-        elif abs(self.angular_vel[0]) > 0.01 or abs(self.angular_vel[1])  > 0.01 or abs(self.angular_vel[2]) > 3.0:
-            rospy.logerr("Angular velocity too large, current angular velocities: %.2f, %.2f, %.2f", \
-                self.angular_vel[0], self.angular_vel[1], self.angular_vel[2])
+        # elif self.rc_axes check:
+        #     pass
 
-        elif abs(self.acceleration[0]) > 3.0 or abs(self.acceleration[1])  > 3.0 or abs(self.angular_vel[2]) > 10.0:
-            rospy.logerr("Acceleration too large, current accelerations: %.2f, %.2f, %.2f", \
-                self.acceleration[0], self.acceleration[1], self.acceleration[2])
-
-        #elif self.height_above_takeoff > self.h_max:
-        #    rospy.logerr("Drone flying too high, current height: %.2f", self.height_above_takeoff)
-
-        #elif not self.rc_axes:
-        #    rospy.logerr("Could not read remote control axes")
-
-        #elif self.gps_health <= 3:
-        #    rospy.logerr("Not Enough Satellites, current satellites: %d", self.gps_health)
-
-        #elif self.battery_state.voltage < 21.0:
-        #    rospy.logerr("Battery voltage too low, current voltage: %.2fV", self.battery_state.voltage)
-
-        #elif self.battery_state.power_supply_health != 1:
-            """
-            UNKNOWN=0
-            GOOD=1
-            OVERHEAT=2
-            DEAD=3
-            OVERVOLTAGE=4
-            UNSPEC_FAILURE=5
-            COLD=6
-            WATCHDOG_TIMER_EXPIRE=7
-            SAFETY_TIMER_EXPIRE=8
-            """
-        #    rospy.logerr("Power supply health condition: %d", self.battery_state.power_supply_health)
-
+        # elif self.gps_health check:
+        #     pass
+        
         # elif self.gps_position check:
+        #     pass
+
+        # elif self.battery_state check:
+        #     pass
+
+        # elif self.height_above_takeoff check:
+        #     pass
+
+        # elif self.angular_vel check:
+        #     pass
+
+        # elif self.acceleration check:
         #     pass
 
         else:
             field.is_safe = True
+        
+
+    
 
     def hoverInPlace(self):
         # Safety hovering
@@ -540,7 +602,7 @@ if __name__ == '__main__':
         field.move()
 
         field.safetyCheck()
-        #field.is_safe = True
+        field.is_safe = True
         rate.sleep()
     
     if field.is_safe: # If the planner exited normally, land

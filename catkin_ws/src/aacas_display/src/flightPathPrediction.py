@@ -2,24 +2,32 @@
 
 import rospy
 import numpy as np
-from sensor_msgs.msg import Joy
+import matplotlib.pyplot as plt
+from scipy.integrate import odeint
+from scipy import interpolate
+from nav_msgs.msg import Path
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
-from scipy.spatial.transform import Rotation as R
-# from dji_m600_sim.srv import DroneTaskControl
-from dji_sdk.srv import DroneTaskControl
-from aacas_detection.srv import QueryDetections
-from aacas_detection.msg import ObstacleDetection
+from lidar_process.msg import tracked_obj, tracked_obj_arr
 
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 
 class Objects:
-    def __init__(self, pos = np.zeros(3), vel=np.zeros(3), dist = np.inf):
-        self.pos = pos
-        self.vel = vel
-        self.dist = dist
+    def __init__(self, pos = np.zeros(3), vel=np.zeros(3), dist = np.inf, id=0):
+        self.id = id
+        self.position = pos
+        self.velocity = vel
+        self.distance = dist
+        self.last_orbit_change_ = rospy.Time.now() - rospy.Duration(secs=1000)
+        self.orbit = -1
+
   
 
-class vectFieldController:
+class pathGenerator:
 
     def __init__(self, waypoints = [[0,0,0]]):
         self.v_max =  rospy.get_param('maximum_velocity')
@@ -30,6 +38,8 @@ class vectFieldController:
         self.goalPt = 0
         self.goal = self.waypoints[self.goalPt]
         self.switch_dist =  rospy.get_param('switch_waypoint_distance')
+        self.last_waypoint_time = rospy.Time.now()
+        self.waypoint_wait_time = rospy.get_param('waypoint_wait', default=5.0)
 
         # Orbit params
         self.freq = -1 # Orbit direction (+: CW, -: ccw)
@@ -46,36 +56,31 @@ class vectFieldController:
 
         # state Information
         self.pos = np.zeros(3)
+        self.now_pos = np.zeros(3)
         self.vel = np.zeros(3)
         self.yaw = 0
-        self.yaw_rate = 0
         self.quat = Quaternion()
         self.pos_pt = Point()
 
         # Publisher Information
-        vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
-        self.vel_ctrl_pub_ = rospy.Publisher(vel_ctrl_pub_name, Joy, queue_size=10)
+        self.future_path_pub_ = rospy.Publisher('future_path', Path, queue_size=10)
+
 
         # Subscriber Information
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
 
-        # Service Information
-        query_detections_name = rospy.get_param('query_detections_service')
-        rospy.wait_for_service(query_detections_name)
-        self.query_detections_service_ = rospy.ServiceProxy(query_detections_name, QueryDetections)
+        tracked_obj_topic = rospy.get_param('obstacle_trajectory_topic')
+        rospy.Subscriber(tracked_obj_topic, tracked_obj_arr, self.updateDetections, queue_size=1)
 
-        takeoff_service_name = rospy.get_param('takeoff_land_service_name')
-        rospy.wait_for_service(takeoff_service_name)
-        self.takeoff_service = rospy.ServiceProxy(takeoff_service_name, DroneTaskControl)
 
 
 
     def position_callback(self, msg):
         pt = msg.point
         self.pos_pt = pt
-        self.pos = np.array([pt.x, pt.y, pt.z])
+        self.now_pos = np.array([pt.x, pt.y, pt.z])
 
     def velocity_callback(self, msg):
         pt = msg.vector
@@ -84,17 +89,36 @@ class vectFieldController:
     def attitude_callback(self, msg):
         q = msg.quaternion
         self.quat = q
-        r = R.from_quat([q.x, q.y, q.z, q.w])
-        [roll, pitch, yaw] = r.as_euler('xyz')
+
+        qt = [q.w, q.x, q.y, q.z]
+        [yaw, pitch, roll] = self.yaw_pitch_roll(qt)
         self.yaw = yaw
+
+
+    def yaw_pitch_roll(self, q):
+        q0, q1, q2, q3 = q
+        q2sqr = q2 * q2
+        t0 = -2.0 * (q2sqr + q3 * q3) + 1.0
+        t1 = +2.0 * (q1 * q2 + q0 * q3)
+        t2 = -2.0 * (q1 * q3 - q0 * q2)
+        t3 = +2.0 * (q2 * q3 + q0 * q1)
+        t4 = -2.0 * (q1 * q1 + q2sqr) + 1.0
+
+        if t2 > 1.0:        t2 = 1.0
+        if t2 < -1.0:       t2 = -1.0
+
+        pitch = np.arcsin(t2)
+        roll  = np.arctan2(t3, t4)
+        yaw   = np.arctan2(t1, t0)
+
+        return yaw, pitch, roll  
+
 
     ## TODO: Implement in 3D
     ## For Now: 2D Implementation
     def getXdes(self):
         velDes = np.zeros(4)
 
-        if len(self.waypoints) == 0: return velDes
-        
         # Check if we are close to an object
         closeObjects, avoid = self.getCloseObjects()
         
@@ -102,11 +126,13 @@ class vectFieldController:
         if avoid:
             vels = []
             for obstacle in closeObjects:
-                # if self.change_orbit_wait_ < (rospy.Time.now() - self.last_orbit_change_).to_sec():
-                #     self.decideOrbitDirection(obstacle)
+                if self.change_orbit_wait_ < (rospy.Time.now() - obstacle.last_orbit_change_).to_sec():
+                    self.decideOrbitDirection(obstacle)
+                else:
+                    self.freq = obstacle.orbit
                 # velDes[:3] = self.getOrbit([obstacle.position.x,obstacle.position.y,obstacle.position.z])
 
-                self.decideOrbitDirection(obstacle)
+                # self.decideOrbitDirection(obstacle)
                 vel = self.getOrbit([obstacle.position.x,obstacle.position.y,obstacle.position.z])
                 mod = 1/(obstacle.distance)
                 # mod = np.exp(-1/(3*obstacle.distance))
@@ -122,10 +148,6 @@ class vectFieldController:
         if np.linalg.norm(velDes[:3]) > self.v_max:
             velDes[:3] = velDes[:3]/np.linalg.norm(velDes[:3])*self.v_max
         
-        # Heading Control
-        w_d = self.headingControl(velDes)
-        velDes[3] = w_d
-
         return velDes
 
 
@@ -143,32 +165,14 @@ class vectFieldController:
             
             pos = np.array([obs_pos[0], obs_pos[1], 1])
             obst_trans = np.matmul(T_vo, pos)
-            if obst_trans[1] > 0 and obst.distance < self.safe_dist:
+            if obst_trans[1] > -0.5 and obst.distance < self.safe_dist:
                 closeObjects.append(obst)
                 move = True
         return closeObjects, move
 
 
-    def changeGoalPt(self):
-        dist_to_goal = np.linalg.norm(self.pos-self.goal)
 
-        if(dist_to_goal < self.switch_dist):
-            self.goalPt += 1
-            if(self.goalPt > len(self.waypoints)-1):
-                self.goalPt = 0
-            self.goal =self.waypoints[self.goalPt]
-
-
-    def headingControl(self, velDes):
-        vel_angle = np.arctan2(velDes[1], velDes[0])
-        angleDiff = vel_angle - self.yaw
-        angleDiff = (angleDiff + np.pi) % (2 * np.pi) - np.pi
-        w_d = self.K_theta * angleDiff
-
-        # w_d = vel_angle
-        return w_d
-
-
+    ## TODO: Need to handle moving obstacles better
     def decideOrbitDirection(self, ob):
         # Note: All directions are assuming the vehicle is looking
         # straight at the goal
@@ -196,28 +200,62 @@ class vectFieldController:
                 self.freq = 1       # Orbit CW
             else:                   # If object is to the left
                 self.freq = -1      # Orbit CCW
+
         self.last_orbit_change_ = rospy.Time.now()
+        ob.last_orbit_change_ = self.last_orbit_change_
+        ob.orbit = self.freq
 
 
 
-    def move(self):
-        # Check if we have reached the next waypoint. If so, update
-        rospy.loginfo("HERE")
+    def getPath(self):
 
-        self.changeGoalPt()
         self.v_max =  rospy.get_param('maximum_velocity')
-        
-        # Update Detections
-        self.updateDetections()
+        self.pos = np.array(self.now_pos)
 
-        # Get velocity vector
-        velDes = self.getXdes() 
+
+        ## TODO Perform integration
+        path = np.array(self.pos)
+        dt = 0.1
+        timeHorizon = 10
+
+        for i in range(int(timeHorizon/dt)):
+            self.simDetections()
+            velDes = self.getXdes() 
+            self.pos += velDes[:3]*0.1
+            path = np.vstack((path,self.pos))
+
+        self.plotPath(path)
+        self.now_pos = path[1]
+
+
+
+
+
+    def plotPath(self, path):
+        xs = path[:,0]
+        ys = path[:,1]
+
+        xs = moving_average(xs, n=25)
+        ys = moving_average(ys, n=25)
+
+        plt.clf()
+        plt.plot(xs, ys)
+        for i in range(len(self.detections)):
+            plt.scatter(self.detections[i].position.x, self.detections[i].position.y, marker='o', c='r')
+        plt.scatter(self.now_pos[0], self.now_pos[1], marker='s', c='b', s=np.power(30,2))
+        plt.scatter(self.goal[0], self.goal[1], marker='^', c='g', s=80)
+        plt.xlim([-10,10])
+        plt.ylim([-5,25])
+
+        plt.draw()
+        plt.pause(0.0001)
+
+        a=4
+
+
+
         
-        # Publish Vector
-        joy_out = Joy()
-        joy_out.header.stamp = rospy.Time.now()
-        joy_out.axes = [velDes[0], velDes[1], velDes[2],velDes[3],]
-        self.vel_ctrl_pub_.publish(joy_out)
+
 
 
 
@@ -276,47 +314,57 @@ class vectFieldController:
         return T_vo
 
 
-    def updateDetections(self):
-        in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
-        self.detections = in_detections.detection_array.detections
+    def updateDetections(self, msg):
+        in_detections = msg.tracked_obj_arr
+        self.detections = []
+        for obj in in_detections:
+            newObj = Objects()
+            newObj.position = obj.point
+            newObj.velocity = Point(0,0,0)
+            newObj.id = obj.object_id
+            newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
+            self.detections.append(newObj)
+
+
+
+    def simDetections(self):
+        self.detections = []
+        in_detections = [[0.5,10,2], [-3,10,2], [-1.5,15,2]]
+        # in_detections = [[0.5,10,2]]
+        for obj in in_detections:
+            newObj = Objects()
+            newObj.position = Point(obj[0], obj[1], obj[2])
+            newObj.velocity = Point(0,0,0)
+            newObj.distance = np.linalg.norm([newObj.position.x - self.pos[0], newObj.position.y - self.pos[1], newObj.position.z - self.pos[2]])
+            self.detections.append(newObj)
+
+
+
+
+
 
 
 if __name__ == '__main__': 
   try:
-    rospy.init_node('vectFieldController')
-
-    start_pos = np.array([0,0,rospy.get_param('transform_z_offset')])
+    rospy.init_node('path_generation')
+    rate = rospy.Rate(10) # 10hz
 
     # Launch Node
-    field = vectFieldController()
-    field.waypoints  = np.array([rospy.get_param('waypoint_1'), 
-                                 rospy.get_param('waypoint_2')])
-    field.goal = field.waypoints[0] 
+    path_gen = pathGenerator()
+    path_gen.simDetections()
 
-    rospy.sleep(2)
+    x_waypoint = rospy.get_param('waypoint_x')
+    y_waypoint = rospy.get_param('waypoint_y')
+    z_waypoint = rospy.get_param('waypoint_z')
+    path_gen.waypoints = np.transpose(np.array([x_waypoint, y_waypoint, z_waypoint]))
+    path_gen.goal = path_gen.waypoints[1] 
 
-    rospy.loginfo("LAUNCH")
 
-    ########### Takeoff Controll ###############
-    resp1 = field.takeoff_service(4)
-    ########### Takeoff Controll ###############
-
-    rospy.sleep(10)
-
-    startTime = rospy.Time.now()
-    rate = rospy.Rate(10) # 10hz
-    while (rospy.Time.now() - startTime).to_sec() < 600:
-        field.move()
+    while not rospy.is_shutdown():
+        path_gen.getPath()
         rate.sleep()
-
-    rospy.loginfo("LAND")
-
-    ########### Takeoff Controll ###############
-    resp1 = field.takeoff_service(6)
-    ########### Takeoff Controll ###############
-
+    
     rospy.spin()
     
   except rospy.ROSInterruptException:
     pass
-
