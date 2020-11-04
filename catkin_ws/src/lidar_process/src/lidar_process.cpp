@@ -55,7 +55,6 @@ class pc_process{
     float buffer;
     int detect_range;
 
-    sensor_msgs::PointCloud2 pub_cropped_cloud;
     yolov3_sort::BoundingBox bb;
     yolov3_sort:: BoundingBoxes bbox_msg;
     sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
@@ -68,7 +67,6 @@ class pc_process{
     ros::Subscriber drone_pos_sub;
     ros::Subscriber drone_orient_sub;
     ros::Publisher tracked_obj_pub;
-    ros::Publisher cropped_cloud_pub;
     // Input Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
     // Cropped Cloud
@@ -111,7 +109,6 @@ class pc_process{
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
-        cropped_cloud_pub = n.advertise<sensor_msgs::PointCloud2> ("cropped_cloud", 1);
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
                     0.0, 575.2453, 246.5657, 
