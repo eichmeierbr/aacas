@@ -39,7 +39,7 @@ ob_vel_x: 0
 ob_vel_y: 0
 ob_vel_z: 0
 
-travel_dist: 15
+travel_dist: 50
 
 nr_of_obstacles: 1
 

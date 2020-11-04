@@ -229,6 +229,7 @@ class vectFieldController:
     def decideOrbitDirection(self, ob):
         # Note: All directions are assuming the vehicle is looking
         # straight at the goal
+        vel_mod = rospy.get_param('velocity_avoid_mod', default=1.75)
 
         obst_vel = ob.velocity[:]
         obst_pos = ob.position[:]
@@ -242,18 +243,9 @@ class vectFieldController:
 
 
         t_y = trans_pos[1]/(self.v_max - trans_vel[1])
-        trans_pos[0] += trans_vel[0]*t_y
+        trans_pos[0] += vel_mod*trans_vel[0]*t_y
 
-        # # Check if object is stationary
-        # if np.linalg.norm(trans_vel) > 1:
-        #     if(trans_vel[0] >= 0):          # If obstacle is moving right
-        #         self.freq = 1               # Orbit CW
-        #     else:                           # If obstacle is moving left
-        #         self.freq = -1              # Orbit CCW
-
-        # # else object is stationary
-        # else:
-        if(trans_pos[0] + t_y*trans_vel[0] >= 0):  # If object is to the right
+        if(trans_pos[0] >= 0):  # If object is to the right
             self.freq = 1       # Orbit CW
         else:                   # If object is to the left
             self.freq = -1      # Orbit CCW

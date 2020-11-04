@@ -18,6 +18,7 @@ class DetectionSimulation:
     self.sim_detections_ = tracked_obj_arr()
     self.true_out_detections_ = tracked_obj_arr()
 
+
     # Publisher for the detections
     detection_pub_name = rospy.get_param('true_obstacle_topic')
     self.detection_pub_ = rospy.Publisher(detection_pub_name, tracked_obj_arr, queue_size=1)
@@ -85,6 +86,7 @@ class Objects:
     self.vel_noise = rospy.get_param('object_velocity_noise')
     self.detect_rate = rospy.get_param('object_detection_rate')
     self.detect_range = rospy.get_param('object_detection_dist')
+    self.obstacle_travel = rospy.get_param('travel_dist', 50)
     self.id = ident
     self.lastUpdate = 0
 
@@ -103,7 +105,7 @@ class Objects:
   def convertToDetectionMessage(self, orig_pos = [0,0,0]):
     dist = np.linalg.norm(orig_pos - np.array([self.pos[0], self.pos[1], self.pos[2]]))
 
-    travel_dist = 50.0
+    travel_dist = self.obstacle_travel
     dy = rospy.get_param('ob_vel_y')
     dx = rospy.get_param('ob_vel_x')
     nowTime = rospy.Time.now().to_sec()
