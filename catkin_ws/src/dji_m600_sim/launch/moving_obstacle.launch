@@ -17,7 +17,7 @@
 
   <arg name="move_start_delay" default="20.0" />  
   <node name="sim_pilot" pkg="aacas_motion" type="sim_pilot.py" output="screen" /> 
-  <!-- <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />  -->
+  <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> 
 
 
 </launch>
