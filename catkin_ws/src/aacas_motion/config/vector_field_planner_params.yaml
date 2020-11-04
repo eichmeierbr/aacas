@@ -8,6 +8,10 @@ waypoint_x: [0.0, 0.0]
 waypoint_y: [0.0, 20.0]
 waypoint_z: [2.0, 2.0]
 
+# waypoint_x: [0.0, 20.0]
+# waypoint_y: [0.0, 0.0]
+# waypoint_z: [2.0, 2.0]
+
 # Orbit Parameters
 orbit_freq:               -1
 orbit_k_conv:             0.01

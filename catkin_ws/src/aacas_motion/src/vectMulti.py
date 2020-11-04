@@ -2,6 +2,7 @@
 
 import rospy
 import copy
+import itertools
 import numpy as np
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion, PoseStamped
@@ -15,7 +16,7 @@ def moving_average(a, n=3) :
     return ret[n - 1:] / n
 
 
-class Objects:
+class ObjMulti:
     def __init__(self, pos = np.zeros(3), vel=np.zeros(3), acc=np.zeros(3), dist = np.inf, id=0):
         self.id = id
         self.position = pos
@@ -23,18 +24,20 @@ class Objects:
         self.acceleration = acc
         self.distance = dist
         self.last_orbit_change_ = rospy.Time.now() - rospy.Duration(secs=1000)
-        self.orbit = -1
+        self.orbit = 1
   
-
 
 class vectFieldController:
 
     def __init__(self, waypoints = [[0,0,0]]):
         self.v_max =  rospy.get_param('maximum_velocity')
         self.detections = []
+        self.hold_detections = []
         self.in_detections = []
         self.lastPathPub = rospy.Time.now()
+        self.lastPathCalc= rospy.Time.now()
         self.path = []
+        self.curr_path = []
 
         # Waypoint params
         self.waypoints = waypoints
@@ -52,6 +55,7 @@ class vectFieldController:
         self.K_theta =  rospy.get_param('heading_k_theta')
         self.last_orbit_change_ = rospy.Time.now()
         self.change_orbit_wait_ = rospy.get_param('orbit_change_wait')
+        self.orbits = {}
 
         # Go to Goal Parameters
         self.g2g_sig =  rospy.get_param('g2g_sigma')
@@ -156,11 +160,7 @@ class vectFieldController:
         if avoid:
             vels = []
             for obstacle in closeObjects:
-                if self.change_orbit_wait_ < (rospy.Time.now() - obstacle.last_orbit_change_).to_sec():
-                    self.decideOrbitDirection(obstacle)
-                else:
-                    self.freq = obstacle.orbit
-
+                self.freq = self.orbits[obstacle.id]
                 vel = self.getOrbit(obstacle.position)
                 mod = 1/(obstacle.distance)
                 # mod = np.exp(-1/(3*obstacle.distance))
@@ -193,9 +193,9 @@ class vectFieldController:
         T_vo = self.transformToGoalCoords()    
         
         for obst in self.detections:
-            obs_pos = obst.position[:]
+            # obs_pos = np.array([obst.position.x, obst.position.y, obst.position.z])
             
-            pos = np.array([obs_pos[0], obs_pos[1], 1])
+            pos = np.array([obst.position[0], obst.position[1], 1])
             obst_trans = np.matmul(T_vo, pos)
             if obst_trans[1] > -0.5 and obst.distance < self.safe_dist:
                 closeObjects.append(obst)
@@ -225,55 +225,73 @@ class vectFieldController:
         return w_d
 
 
-    ## TODO: Need to handle moving obstacles better
-    def decideOrbitDirection(self, ob):
-        # Note: All directions are assuming the vehicle is looking
-        # straight at the goal
+    def getVelDes(self):
+        velDes = np.zeros(4)
 
-        obst_vel = ob.velocity[:]
-        obst_pos = ob.position[:]
+        if len(self.hold_detections) == 0:
+            velDes[:3] = self.goToGoalField()
+
+            # Heading Control
+            w_d = self.headingControl(velDes)
+            velDes[3] = w_d
+        else:
+            velDes = self.getXdes()
+
+        # Normalize velocity
+        if np.linalg.norm(velDes[:3]) > self.v_max:
+            velDes[:3] = velDes[:3]/np.linalg.norm(velDes[:3])*self.v_max
         
-        
-        # Perform transformed coordinates
-        T_vo = self.transformToGoalCoords()
-        
-        trans_vel = np.matmul(T_vo, [obst_vel[0], obst_vel[1], 0])
-        trans_pos = np.matmul(T_vo, [obst_pos[0], obst_pos[1], 1])
 
-
-        t_y = trans_pos[1]/(self.v_max - trans_vel[1])
-        trans_pos[0] += trans_vel[0]*t_y
-
-        # # Check if object is stationary
-        # if np.linalg.norm(trans_vel) > 1:
-        #     if(trans_vel[0] >= 0):          # If obstacle is moving right
-        #         self.freq = 1               # Orbit CW
-        #     else:                           # If obstacle is moving left
-        #         self.freq = -1              # Orbit CCW
-
-        # # else object is stationary
-        # else:
-        if(trans_pos[0] + t_y*trans_vel[0] >= 0):  # If object is to the right
-            self.freq = 1       # Orbit CW
-        else:                   # If object is to the left
-            self.freq = -1      # Orbit CCW
-
-        self.last_orbit_change_ = rospy.Time.now()
-        ob.last_orbit_change_ = self.last_orbit_change_
-        ob.orbit = self.freq
+        return velDes
 
 
     ## TODO: Move find close obstacles to move. Do position control if no obstacles to avoid
     ## For now: Always do velocity control
     def move(self):
-
         # Check if we have reached the next waypoint. If so, update
         self.changeGoalPt()
         self.v_max =  rospy.get_param('maximum_velocity')
 
+        self.hold_detections = copy.copy(self.in_detections)
         self.resetState()
 
-        velDes = self.getXdes()
+        # Only update the path every second
+        if (rospy.Time.now() - self.lastPathCalc).to_sec() > 0.5:
+            bestCost = np.inf
+            bestPath = []
+            bestOrbits = copy.copy(self.orbits)
+            orbitPairs = map(list, itertools.product([-1, 1], repeat=len(self.detections)))
+            # Iterate through all orbit pairs
+            if len(orbitPairs) > 1:
+                for orbits in orbitPairs:
+                    self.setOrbits(orbits)
+                    cost, path = self.findPath()
+    
+                    # Save the best path
+                    if cost < bestCost:
+                        bestCost = cost
+                        bestPath = path
+                        bestOrbits = copy.copy(self.orbits)
+        
+                    self.resetState()
+        
+                self.publishPath(bestPath)
+                self.resetState()
+                self.lastPathPub = rospy.Time.now()
+                self.lastPathCalc= rospy.Time.now()
+                self.curr_path = bestPath
+                self.orbits = copy.copy(bestOrbits)
+        
+
+        # if updateOrbits:
+        # if len(self.orbits)>0:
+        #     # print(self.orbits)
+        #     self.detections = self.hold_detections
+        #     self.setOrbits(self.orbits, isUpdate=True)
+    
+        ## TODO: Need to map orbits to obstacle ids. Otherwise this wipes to a CCW orbit
+        # velDes = self.getXdes()
+        velDes = self.getVelDes()
 
 
         # Pause to rotate after waypoint
@@ -286,21 +304,24 @@ class vectFieldController:
         joy_out.axes = [velDes[0], velDes[1], velDes[2],velDes[3]]
         self.vel_ctrl_pub_.publish(joy_out)
 
-        # Find future path
-        if (rospy.Time.now() - self.lastPathPub).to_sec() > 0.5:
-            self.lastPathPub = rospy.Time.now()
-            # publish path
-            self.findPath()
-            self.resetState()
-
-
 
     def resetState(self):
         self.yaw = copy.copy(self.curr_yaw)       
         self.vel = copy.copy(self.curr_vel)       
         self.pos = copy.copy(self.curr_pos)     
-        self.detections = copy.copy(self.in_detections)
+        self.detections = copy.copy(self.hold_detections)
  
+
+    def setOrbits(self, orbitPair, isUpdate=False):
+        # if isUpdate:
+        #     for i in range(len(self.in_detections)):
+        #         self.in_detections[i].orbit = self.orbits[self.in_detections[i].id]
+        # else:
+        # orbit_dict = {}
+        for i in range(len(self.detections)):
+            self.detections[i].orbit = orbitPair[i]
+            self.orbits[self.detections[i].id] = orbitPair[i]
+        # self.orbits = orbit_dict
 
 
     ## TODO: Implement in 3D
@@ -359,16 +380,15 @@ class vectFieldController:
 
 
     def updateDetections(self, msg):
-        # in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
         in_detections = msg.tracked_obj_arr
         self.in_detections = []
         for obj in in_detections:
-            newObj = Objects()
+            newObj = ObjMulti()
             newObj.position = np.array([obj.point.x, obj.point.y, obj.point.z])
             newObj.velocity = np.array([obj.vel.x, obj.vel.y, obj.vel.z])
-            newObj.acceleration = np.array([obj.acc.x, obj.acc.y, obj.acc.z])
+            newObj.acceleration= np.array([0,0,0])
             newObj.id = obj.object_id
-            newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
+            newObj.distance = np.linalg.norm([newObj.position - self.pos])
             self.in_detections.append(newObj)
 
 
@@ -377,13 +397,16 @@ class vectFieldController:
             self.detections[i].position = self.detections[i].position + self.detections[i].velocity*dt
             self.detections[i].velocity = self.detections[i].velocity + self.detections[i].acceleration*dt
             self.detections[i].distance = np.linalg.norm([self.detections[i].position - self.pos])
+            self.closestObjDist = min(self.detections[i].distance, self.closestObjDist)
+
 
     
     def findPath(self):
-        path = []
         dt = 0.25
         timeHorizon = 8
         self.path = []
+        self.closestObjDist = np.inf
+        self.detections = copy.copy(self.in_detections)
 
         # Perform path simulation
         for t in np.arange(0,timeHorizon, dt):
@@ -405,16 +428,30 @@ class vectFieldController:
         self.path = np.vstack((xs,ys,zs)).transpose()
         self.path = np.vstack((self.curr_pos, self.path))
 
-        for pos in self.path:
+
+        cost = self.calcPathCost()
+        return cost, copy.copy(self.path)
+
+
+
+    def calcPathCost(self):
+        toGoal = np.linalg.norm(self.path[-1] - self.goal)
+        # return toGoal
+        return np.abs(1/(self.closestObjDist-0.5)) + 3*toGoal
+
+
+    def publishPath(self, in_path):
+        path = []
+        for pos in in_path:
             newPose = PoseStamped()
             newPose.header.frame_id = 'world'
             newPose.pose.position = Point(pos[0], pos[1], pos[2])
             path.append(newPose)
 
-        newPose = PoseStamped()
-        newPose.header.frame_id = 'world'
-        newPose.pose.position = Point(self.pos[0], self.pos[1], self.pos[2])
-        path.append(newPose)
+        # newPose = PoseStamped()
+        # newPose.header.frame_id = 'world'
+        # newPose.pose.position = Point(self.pos[0], self.pos[1], self.pos[2])
+        # path.append(newPose)
 
         out = Path()
         out.poses = path
@@ -423,11 +460,9 @@ class vectFieldController:
         self.future_path_pub_.publish(out)
 
 
-
-
 if __name__ == '__main__': 
   try:
-    rospy.init_node('vectFieldPath')
+    rospy.init_node('vectFieldMulti')
     rate = rospy.Rate(10) # 10hz
 
     # Launch Node

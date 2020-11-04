@@ -120,8 +120,8 @@ class Objects:
     out_detection.object_id = self.id
     out_detection.object_label = self.class_name
     out_detection.point = Point(self.pos[0], self.pos[1], self.pos[2])
+    out_detection.vel = Point(self.vel[0], self.vel[1], self.vel[2]) 
 
-    # out_detection.velocity = Vector3(self.vel[0], self.vel[1], self.vel[2]) 
     # out_detection.distance = dist
 
     return out_detection
