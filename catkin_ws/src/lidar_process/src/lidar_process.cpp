@@ -34,8 +34,6 @@
 #include <rviz_visual_tools/rviz_visual_tools.h>
 using namespace std;
 
-// #include <pcl/visualization/cloud_viewer.h>
-// pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
 
 // Stores the estimated centoird location of the tracked object
 struct instance_pos{
@@ -135,7 +133,7 @@ class pc_process{
         tmp_cropped_cloud->is_dense = true;
 
 
-        // ////////////////////Attempt to filter out ground plane
+        // ////////////////////Filter out ground plane
         // Create the segmentation object for the planar model and set all the parameters
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
         pcl::SACSegmentation<pcl::PointXYZ> seg;
@@ -287,41 +285,6 @@ class pc_process{
                     
                     this->cloud_cluster = tmp_cloud_cluster;
 
-                    ///////////////////////////////////Visuallization
-                    // // Adding grid points
-                    // pcl::PointCloud<pcl::PointXYZ>::Ptr grid_points(new pcl::PointCloud<pcl::PointXYZ>);
-                    // for (int i = -4; i < 6; i++){
-                    //     for (int j=3; j < 10;j++){
-                    //         pcl::PointXYZ point;
-                    //         point.x = j;
-                    //         point.y = i;
-                    //         point.z = 1;
-                    //         grid_points->points.push_back(point);
-                    //     }
-                    // }
-                    
-                    // viewer->setBackgroundColor (0, 0, 0);
-                    // //background points
-                    // viewer->removePointCloud("all_points");
-                    // viewer->addPointCloud<pcl::PointXYZ> (cropped_cloud, "all_points");
-                    // //Grid Points
-                    // viewer->removePointCloud("grid_points");
-                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr grid_points);
-                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> grid_color (grid_points, 0, 255, 0);
-                    // viewer->addPointCloud<pcl::PointXYZ> (grid_points, grid_color, "grid_points");
-                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 7, "grid_points");
-                    // viewer->removePointCloud("cloud_cluster");
-                    // pcl::visualization::PCLVisualizer::Ptr customColourVis (pcl::PointCloud<pcl::PointXYZ>::ConstPtr tmp_cloud_cluster);
-                    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> single_color (tmp_cloud_cluster, 255, 0, 0);
-                    // viewer->addPointCloud<pcl::PointXYZ> (tmp_cloud_cluster, single_color, "cloud_cluster");
-                    // viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "cloud_cluster");
-                    // // viewer->addCoordinateSystem (1.0);
-                    // viewer->spinOnce (100);
-                    //////////////////////////////////////////////////////////////////////
-
-
-
-
                 }
 
     }
@@ -432,46 +395,6 @@ class pc_process{
         cout<<"" << endl;
     } 
 
-    // void publisher(){
-    //     lidar_process::tracked_obj_arr tracked_objs;
-    //     for (auto const& x : instance_pos_dict)
-    //     {           
-    //         lidar_process::tracked_obj tracked_obj_msg;
-    //         tracked_obj_msg.object_id = x -> object_id; 
-    //         geometry_msgs::Point point = apply_trans(x);
-    //         tracked_obj_msg.point = point;
-    //         tracked_obj_msg.header.stamp = ros::Time::now();
-    //         tracked_obj_msg.object_label = x-> object_label;
-    //         tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
-    //     }
-    //     tracked_obj_pub.publish(tracked_objs);
-    // }
-
-    // void bb_cb(const yolov3_sort:: BoundingBoxes msg){
-    //     bbox_msg = msg;
-    //     cout<<"New call back" << endl;
-    //     //loop through all bounding boxes
-    //     instance_pos_dict.clear();
-    //     for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
-
-    //         // instance ID of the object
-    //         yolov3_sort::BoundingBox bb =  bbox_msg.bounding_boxes[i];
-    //         int obj_indx = bb.idx;
-
-    //         // instance already being tracked and tacklet died, delete the obj
-    //         if ( bb.label!=-1){
-    //             if (get_points_in_bb(bb)==true)
-    //                 {   
-    //                     cluster();
-    //                     //get position of the tracket 
-    //                     instance_pos*inst_pos_ptr = get_pos(bb.label);
-    //                     inst_pos_ptr->object_id = obj_indx;
-    //                     instance_pos_dict.push_back(inst_pos_ptr); 
-    //                 }
-    //         }
-    //     }
-    //     cout<<"instance_pos_dict size" << instance_pos_dict.size() << endl;
-    // } 
 
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;
