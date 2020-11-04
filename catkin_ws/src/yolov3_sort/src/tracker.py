@@ -24,6 +24,7 @@ package_path = package.get_path('yolov3_sort')
 
 from sensor_msgs.msg import Image
 from yolov3_sort.msg import BoundingBox, BoundingBoxes
+from lidar_process.msg import tracked_obj_arr, tracked_obj
 
 class Tracker():
     def __init__(self):
@@ -31,7 +32,17 @@ class Tracker():
         self.quat = np.zeros(4)
         self.prev_trans = np.identity(4)
         self.curr_trans = np.identity(4)
-        self.u = np.identity(4)
+
+        # Store extrinsic matrix & intrinsic matrix
+        self.dT = np.identity(4)
+        self.K = np.array([[574.0198,      0.0, 318.1983, 0.0],
+                           [     0.0, 575.2453, 246.5657, 0.0],
+                           [     0.0,      0.0,      1.0, 0.0]])
+        # Store 3d points (center, homogeneous)
+        self.XYZ = {}
+        # Store control inputs
+        self.u = {}
+
         weights_name = rospy.get_param('~weights_name')
         self.weights_path = os.path.join(package_path, 'weights', weights_name)
         if not os.path.isfile(self.weights_path):
@@ -70,6 +81,7 @@ class Tracker():
         self.img_sub = rospy.Subscriber(self.image_topic, Image, self.imageCb, queue_size=1, buff_size = 2**24)
         self.pos_sub = rospy.Subscriber('/dji_sdk/local_position', PointStamped, self.position_callback, queue_size=1)
         self.att_sub = rospy.Subscriber('/dji_sdk/attitude', QuaternionStamped, self.attitude_callback, queue_size=1)
+        self.lidar_sub = rospy.Subscriber('/tracked_obj_pos_arr', tracked_obj_arr, self.lidar_callback, queue_size=1)
 
         # Define publisher & topics
         self.tracked_objects_topic = rospy.get_param('~tracked_objects_topic')
@@ -89,7 +101,14 @@ class Tracker():
     def position_callback(self, msg):
         pt = msg.point
         self.drone_pos = np.array([pt.x, pt.y, pt.z])
-        
+
+    def lidar_callback(self, msg):
+        # object_id, point
+        self.XYZ = {} # clear dictionary
+        for obj in msg.tracked_obj_arr:
+            idx = obj.object_id
+            pt = obj.point
+            self.XYZ[idx] = np.array([[pt.x], [pt.y], [pt.z], [1.]]) #homogeneous
 
     def yaw_pitch_roll(self):
         q0, q1, q2, q3 = self.quat[0],self.quat[1], self.quat[2], self.quat[3]
@@ -118,8 +137,30 @@ class Tracker():
         self.prev_trans = self.curr_trans
         self.curr_trans[0:3,0:3] = np.matmul(Rx, np.matmul(Ry,Rz))
         self.curr_trans[0:3,3] = self.drone_pos
-        self.u = np.matmul(self.curr_trans , np.linalg.inv(self.prev_trans)) 
-        
+        self.dT = np.matmul(self.curr_trans , np.linalg.inv(self.prev_trans))  #drone rel transformation t-1 : t
+
+    def compute_u(self):
+        """
+        Input: (self.tracklets)
+        self.u1        N*(x, y): 2D top left corners of bounding boxes (tracklet state)
+        self.dT          (4, 4): Relative transformation
+        self.K           (4, 4): Intrinsics
+        self.XYZ N*(x, y, z, 1): Homogeneous 3D centers of objects
+
+        Output: 
+        self.u2     N*(x, y): 
+        """
+        u = {}
+        # align indices
+        for tr in self.tracklets:
+            x, y, w, h = tr.getState() #xywh
+            u1 = np.array([[x + 0.5*w], [y + 0.5*h]]) # corner to center
+            pt = self.XYZ[tr.idx]  # 4*1
+            u2 = np.matmul(np.matmul(self.K, self.dT), pt)# K(H2*H1^-1)P
+            u2 /= u2[-1]
+            u[idx] = u1 - u2[:2] # 2*1
+
+        self.u = u
 
 
     def imageCb(self, data):
@@ -147,6 +188,7 @@ class Tracker():
             bboxes.bounding_boxes.append(bbox_msg)"""
 
         for tr in self.tracklets:
+            tr.predict(self.u[tr.idx]) # incorporate control inputs to existing tracklets, assign by idx
             tr.setActive(False)
 
         for yolo_box in yolo_boxes:
@@ -179,7 +221,8 @@ class Tracker():
                 if tr.timeout > 2:
                     bbox_msg.label = -1
 
-                else:                      bbox_msg.label = tr.label
+                else:                      
+                    bbox_msg.label = tr.label
 
                 bbox_msg.xmin = x
                 bbox_msg.ymin = y
@@ -192,8 +235,8 @@ class Tracker():
                 if tr.timeout > 2:
                     self.tracklets.remove(tr)
 
-                else:
-                    tr.predict(self.u)
+                #else:
+                #    tr.predict(self.u)
                     #tr.addLength()
                     #rospy.loginfo(str(tr.length))
 
