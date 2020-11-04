@@ -112,7 +112,7 @@ class pc_process{
         drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &pc_process::drone_orient_cb,this);
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
-        tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr2", 1);
+        tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
         cropped_cloud_pub = n.advertise<sensor_msgs::PointCloud2> ("cropped_cloud", 1);
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
