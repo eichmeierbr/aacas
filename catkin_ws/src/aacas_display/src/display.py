@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 from sensor_msgs.msg import Joy
-from lidar_process.msg import tracked_obj_arr
+from traj_prediction.msg import tracked_obj_arr
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 # from scipy.spatial.transform import Rotation as R
 # from dji_m600_sim.srv import SimDroneTaskControl
@@ -17,6 +17,13 @@ import pyqtgraph as pg
 # pip install pyqtgraph
 import sys
 
+from PyQt5 import QtWidgets, QtGui
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QAction, QLineEdit, QMessageBox, QLabel, qApp, QDesktopWidget, QVBoxLayout, QSlider, QHBoxLayout
+from PyQt5.QtGui import QIcon, QDesktopServices#, QVBoxLayout
+from PyQt5.QtCore import pyqtSlot, Qt, QUrl, QTimer
+
+## Finally import the RViz bindings themselves.
+import rviz
 
 
 class Objects:
@@ -261,11 +268,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        self.title = "Awesome GUI"
-        self.top = 500
-        self.left = 1000
-        self.width = 700
-        self.height = 700
+        self.title = "Optimal Flight Path"
+        self.top = 0
+        self.left = 0
+        self.width = 500
+        self.height = 500
         self.multiplier = 0.8
         self.step = 1
 
@@ -414,6 +421,61 @@ class MainWindow(QtWidgets.QMainWindow):
     #     self.data_line2.setData(self.ox, self.oy)
 
 
+class MyViz( QWidget ):
+
+    def __init__(self):
+        QWidget.__init__(self)
+        self.top = 0
+        self.left = 570
+        self.width = 700
+        self.height = 1030
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.frame = rviz.VisualizationFrame()
+        self.frame.setSplashPath( "" )
+        self.frame.initialize()
+        reader = rviz.YamlConfigReader()
+        config = rviz.Config()
+        reader.readFile( config, "above.rviz" )
+        self.frame.load( config )
+        self.setWindowTitle( config.mapGetChild( "Title" ).getValue() )
+        self.frame.setMenuBar( None )
+        self.frame.setStatusBar( None )
+        self.frame.setHideButtonVisibility( False )
+        self.manager = self.frame.getManager()
+        self.grid_display = self.manager.getRootDisplayGroup().getDisplayAt( 0 )
+        
+        ## Here we create the layout and other widgets in the usual Qt way.
+        layout = QVBoxLayout()
+        layout.addWidget( self.frame )
+        self.setLayout( layout )
+
+class MyViz2( QWidget ):
+
+    def __init__(self):
+        QWidget.__init__(self)
+        self.top = 590
+        self.left = 0
+        self.width = 500
+        self.height = 500
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.frame = rviz.VisualizationFrame()
+        self.frame.setSplashPath( "" )
+        self.frame.initialize()
+        reader = rviz.YamlConfigReader()
+        config = rviz.Config()
+        reader.readFile( config, "behind.rviz" )
+        self.frame.load( config )
+        self.setWindowTitle( config.mapGetChild( "Title" ).getValue() )
+        self.frame.setMenuBar( None )
+        self.frame.setStatusBar( None )
+        self.frame.setHideButtonVisibility( False )
+        self.manager = self.frame.getManager()
+        self.grid_display = self.manager.getRootDisplayGroup().getDisplayAt( 0 )
+        
+        ## Here we create the layout and other widgets in the usual Qt way.
+        layout = QVBoxLayout()
+        layout.addWidget( self.frame )
+        self.setLayout( layout )
 
 
 
@@ -430,6 +492,15 @@ if __name__ == '__main__':
 
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
+
+
+
+    myviz = MyViz()
+    myviz2 = MyViz2()
+    myviz.show()
+    myviz2.show()
+    # app.exec_()
+
     sys.exit(app.exec_())
 
 
