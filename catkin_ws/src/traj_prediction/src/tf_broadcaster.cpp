@@ -268,7 +268,7 @@ int main(int argc, char** argv){
 
   std::string position_topic, attitude_topic;
 
-  std::string actual_pos_topic = "/tracked_obj_pos_arr2";
+  std::string actual_pos_topic = "/tracked_obj_pos_arr";
   std::string predicted_pos_topic = "/predicted_obj_pos_arr";
   std::string drone_attitude_topic = "/dji_sdk/attitude";
   std::string drone_pos_topic = "/dji_sdk/local_position";

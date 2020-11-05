@@ -17,7 +17,8 @@
 
 
   <arg name="move_start_delay" default="10.0" />  
-  <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController_multiObject.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />
+  <node name="dji_pilot" pkg="aacas_motion" type="dji_pilot.py" output="screen" /> 
+  <node name="vectFieldPath" pkg="aacas_motion" type="vectFieldPath.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> 
 
 
 </launch>
