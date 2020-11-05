@@ -301,7 +301,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.graphWidget.getPlotItem().hideAxis('bottom')
         # self.graphWidget.getPlotItem().hideAxis('left')
 
-        self.show()
+        # self.show()
         
     def constant_background(self):
 
@@ -489,7 +489,7 @@ if __name__ == '__main__':
 
     # Launch Node
     
-
+    
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
 
@@ -497,18 +497,25 @@ if __name__ == '__main__':
 
     myviz = MyViz()
     myviz2 = MyViz2()
+
+    window.show()
     myviz.show()
     myviz2.show()
     # app.exec_()
 
+    # x = input("Press Any key to exit")
     sys.exit(app.exec_())
-
+    # if rospy.is_shutdown():
+    #     app.exec_()
+    # if app.exec_():
+    #     sys.exit(0)
 
     # while not rospy.is_shutdown():
         # print(field.vel)
         # make_points(field.vel)
         #field.pos = numpy array
 	#do stuff
+    
    
 
 
