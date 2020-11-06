@@ -13,7 +13,7 @@
   <arg name="published_image_topic" default="tracker_image"/>
 
   <!--Detection confidence-->
-  <arg name="confidence" default="0.9"/>
+  <arg name="confidence" default="0.95"/>
   <arg name="nms" default="0.1"/>
 
   <!--Node-->
