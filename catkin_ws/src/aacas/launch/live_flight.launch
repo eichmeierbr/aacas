@@ -4,6 +4,7 @@
   <!-- Launch parameter files -->
   <rosparam command="load" file="$(find aacas_motion)/config/live_flight_params.yaml"/>
   <rosparam command="load" file="$(find aacas_motion)/config/vector_field_planner_params.yaml"/>
+  <rosparam command="load" file="$(find aacas_motion)/config/safety_params.yaml"/>
 
   <!-- Detection Launch File -->
   <include file="$(find aacas)/launch/aacas.launch" />
@@ -14,7 +15,7 @@
 
   <!-- Motion Controller Launch -->
   <arg name="move_start_delay" default="10.0" />  
-  <node name="vectFieldController" pkg="aacas_motion" type="vectFieldController_multiObject.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" />
+  <node name="vectFieldPath" pkg="aacas_motion" type="vectFieldPath.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> 
   <!-- <node name="dji_pilot" pkg="aacas_motion" type="dji_pilot.py" output="screen" />  -->
 
 

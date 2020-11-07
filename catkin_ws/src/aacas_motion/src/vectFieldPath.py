@@ -355,6 +355,8 @@ class vectFieldController:
         in_detections = msg.tracked_obj_arr
         self.in_detections = []
         for obj in in_detections:
+            if obj.time_increment == 0: 
+                continue
             newObj = Objects()
             newObj.position = np.array([obj.point.x, obj.point.y, obj.point.z])
             newObj.velocity = np.array([obj.vel.x, obj.vel.y, obj.vel.z])
