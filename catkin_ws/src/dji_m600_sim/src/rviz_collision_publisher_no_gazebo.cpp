@@ -15,7 +15,7 @@ void obstacle_visualization_callback(const lidar_process::tracked_obj_arr msg)
 {
   
   visual_tools_.reset(
-      new rviz_visual_tools::RvizVisualTools("/world", "/obstacles"));
+      new rviz_visual_tools::RvizVisualTools("/local", "/obstacles"));
 
   
   std::vector<geometry_msgs::Point> sphere_centers;

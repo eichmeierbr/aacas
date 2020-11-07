@@ -12,10 +12,11 @@
   <!-- DJI Launch File -->
   <include file="$(find dji_sdk)/launch/sdk.launch" />
   <node name="local_position_setter" pkg="aacas" type="local_position_service.py" output="screen" /> 
+  <node pkg="tf" type="static_transform_publisher" name="link1_broadcaster" args="0 0 0 0 0 0 1 world local 100" />
 
 
   <!-- Motion Controller Launch -->
-  <arg name="move_start_delay" default="10.0" />  
+  <arg name="move_start_delay" default="0.0" />  
   <node name="vectFieldPath" pkg="aacas_motion" type="vectFieldPath.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> 
 
 
