@@ -129,7 +129,6 @@ class pc_process{
         pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         tmp_cropped_cloud->is_dense = true;
 
-
         // ////////////////////Filter out ground plane
         // Create the segmentation object for the planar model and set all the parameters
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
@@ -137,17 +136,12 @@ class pc_process{
         pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
         pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
-        pcl::PCDWriter writer;
         seg.setOptimizeCoefficients (true);
         seg.setModelType (pcl::SACMODEL_PLANE);
         seg.setMethodType (pcl::SAC_RANSAC);
         seg.setMaxIterations (100);
         seg.setDistanceThreshold (0.02);
-
-        int i=0, nr_points = (int) input_cloud->size ();
-        if (inliers->indices.size() != 0)
-        {
-            // Segment the largest planar component from the remaining cloud
+        // Segment the largest planar component from the remaining cloud
         seg.setInputCloud (input_cloud);
         seg.segment (*inliers, *coefficients);
         // Extract the planar inliers from the input cloud
@@ -155,16 +149,13 @@ class pc_process{
         extract.setInputCloud (input_cloud);
         extract.setIndices (inliers);
         extract.setNegative (false);
-
         // Get the points associated with the planar surface
         extract.filter (*cloud_plane);
-        std::cout << "PointCloud representing the planar component: " << cloud_plane->size () << " data points." << std::endl;
 
         // Remove the planar inliers, extract the rest
         extract.setNegative (true);
         extract.filter (*cloud_f);
         *input_cloud = *cloud_f;
-        }   
         // //////////////////////////
 
         for (std::size_t i = 0; i < input_cloud->points.size(); ++i)
@@ -183,7 +174,6 @@ class pc_process{
             }
 
             this->cropped_cloud = tmp_cropped_cloud;
-            // pcl::toROSMsg(*tmp_cropped_cloud,pub_cropped_cloud);
         }
 
     bool get_points_in_bb(yolov3_sort::BoundingBox bb){
@@ -352,7 +342,6 @@ class pc_process{
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
-        cout<<"New call back" << endl;
         //loop through all bounding boxes
         for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
             // instance ID of the object
@@ -361,7 +350,6 @@ class pc_process{
 
             // instance already being tracked and tacklet died, delete the obj
             if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-                cout << "Deleted tracklet " << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
                 instance_pos_dict.erase(obj_indx);
                 delete inst_pos_ptr;
@@ -370,7 +358,7 @@ class pc_process{
             // instance already being tracked, tacklet still active
             else if (instance_pos_dict.count(obj_indx) && bb.label!=-1){
                 if (get_points_in_bb(bb)==true)
-                {   cout << " Update old tracket " << obj_indx<< endl; 
+                { 
                     cluster();
                     //get position of the tracket 
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -381,7 +369,6 @@ class pc_process{
             //instance not being tracked yet. 
             else if (!instance_pos_dict.count(obj_indx) && bb.label!=-1 ){
 		        if (get_points_in_bb(bb)==true){
-                    cout << " added new tracket " << obj_indx<< endl; 
                     cluster();
                     //get position of the tracklet
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -389,7 +376,6 @@ class pc_process{
                 }
             }
         }
-        cout<<"" << endl;
     } 
 
 
