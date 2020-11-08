@@ -41,6 +41,7 @@ class djiPilot:
         self.quat = Quaternion()
         self.pos_pt = Point()
         self.is_safe = False
+        self.can_command = False
 
         # safety check constraints
         self.x_constraint   = rospy.get_param('x_constraint', default=[-15, 15])
@@ -213,7 +214,7 @@ class djiPilot:
 
 
     def command_vel_callback(self, msg):
-        if self.is_safe:
+        if self.is_safe and self.can_command:
             self.vel_ctrl_pub_.publish(msg)
         else:
             self.hoverInPlace()
@@ -302,7 +303,7 @@ class djiPilot:
         # elif self.height_above_takeoff < 0.5:
         elif self.pos[2] < self.z_constraint[0]:
             rospy.logerr("Drone too low. Current height: %.2f", self.height_above_takeoff)
-            return False
+            # return False
         return True
 
 
@@ -359,6 +360,7 @@ class djiPilot:
         #    rospy.logerr("Power supply health condition: %d", self.battery_state.power_supply_health)
 
 
+    # TODO: Add time check
     def gpsPositionCheck(self):
         return True
         # elif self.gps_position check:
@@ -415,7 +417,7 @@ if __name__ == '__main__':
     ########### Wait for GPS Lock  #############
     ## TODO: Add functionality to check number of satellites
     rospy.loginfo("Getting Satellite Fix")
-    while pilot.gps_health < 3:
+    while pilot.gps_health < pilot.min_gps:
         rate.sleep()
     rospy.loginfo("Obtained Satellite Fix")
 
@@ -436,6 +438,14 @@ if __name__ == '__main__':
         rate.sleep()
     rospy.loginfo("Control Authority Granted")
     
+   
+    rospy.loginfo('Waiting for safe flight conditions')
+    pilot.is_safe = False
+    while not pilot.is_safe:
+        pilot.safetyCheck()
+        if pilot.is_safe == False:
+            rospy.logwarn_throttle(2,'Unsafe conditions. No launch')
+    rospy.loginfo('Safe Flight Condition Confirmed')
 
     ########### Takeoff Control ###############
     rospy.loginfo("LAUNCH")
@@ -443,9 +453,9 @@ if __name__ == '__main__':
 
     rospy.sleep(5)
 
-    pilot.safetyCheck()
 
     startTime = rospy.Time.now()
+    pilot.can_command = True
     while (rospy.Time.now() - startTime).to_sec() < 200 and pilot.is_safe:
         pilot.safetyCheck()
         rate.sleep()
