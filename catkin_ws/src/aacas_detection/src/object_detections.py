@@ -121,6 +121,7 @@ class Objects:
     out_detection = tracked_obj()
     out_detection.object_id = self.id
     out_detection.object_label = self.class_name
+    out_detection.time_increment = 0
     out_detection.point = Point(self.pos[0], self.pos[1], self.pos[2])
     out_detection.vel = Point(self.vel[0], self.vel[1], self.vel[2]) 
 

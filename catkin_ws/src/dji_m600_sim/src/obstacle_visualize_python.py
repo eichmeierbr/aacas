@@ -18,7 +18,7 @@ def trueMarkerCallback(msg):
     for detect in msg.tracked_obj_arr:
         marker1 = Marker()
         marker1.header.stamp = rospy.Time.now()
-        marker1.header.frame_id = "/world"
+        marker1.header.frame_id = "/local"
         marker1.id = detect.object_id
         marker1.type = marker1.SPHERE
         marker1.action = marker1.ADD

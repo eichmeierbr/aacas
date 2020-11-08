@@ -21,7 +21,3 @@ velocity_avoid_mod:       1.75
 
 # Go to Goal Parameters
 g2g_sigma:                1.5
-
-# Safety Parameters
-x_constraint: [-15.0, 15.0]
-y_constraint: [-5.0, 25.0]

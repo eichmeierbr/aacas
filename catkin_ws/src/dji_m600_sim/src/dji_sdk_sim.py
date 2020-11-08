@@ -114,7 +114,7 @@ class DJI_simulator:
   def publishData(self):    
     head = Header()
     head.stamp = rospy.Time.now()
-    head.frame_id = 'world'
+    head.frame_id = 'local'
 
     # Publish Attitude
     myQuat = self.getQuat()

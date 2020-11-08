@@ -45,10 +45,6 @@ class simPilot:
         self.pos_pt = Point()
         self.is_safe = True
 
-        # safety check constraints
-        self.x_constraint = rospy.get_param('x_constraint')
-        self.y_constraint = rospy.get_param('y_constraint')
-        self.is_ready = False # Before reaching 1st waypoint
 
         self.angular_vel = np.zeros(3)
         self.acceleration = np.zeros(3)

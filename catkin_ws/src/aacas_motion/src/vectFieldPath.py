@@ -355,6 +355,8 @@ class vectFieldController:
         in_detections = msg.tracked_obj_arr
         self.in_detections = []
         for obj in in_detections:
+            if not obj.time_increment == 0: 
+                continue
             newObj = Objects()
             newObj.position = np.array([obj.point.x, obj.point.y, obj.point.z])
             newObj.velocity = np.array([obj.vel.x, obj.vel.y, obj.vel.z])
@@ -399,18 +401,18 @@ class vectFieldController:
 
         for pos in self.path:
             newPose = PoseStamped()
-            newPose.header.frame_id = 'world'
+            newPose.header.frame_id = 'local'
             newPose.pose.position = Point(pos[0], pos[1], pos[2])
             path.append(newPose)
 
         newPose = PoseStamped()
-        newPose.header.frame_id = 'world'
+        newPose.header.frame_id = 'local'
         newPose.pose.position = Point(self.pos[0], self.pos[1], self.pos[2])
         path.append(newPose)
 
         out = Path()
         out.poses = path
-        out.header.frame_id = 'world'
+        out.header.frame_id = 'local'
         out.header.stamp = rospy.Time.now()
         self.future_path_pub_.publish(out)
 
