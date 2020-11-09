@@ -4,7 +4,7 @@
   <arg name="image_topic"  default="/camera/color/image_raw"/>
 
   <!--Configurations-->
-  <arg name="weights_name"  default="yolov3_drone.pth"/>
+  <arg name="weights_name"  default="yolov3_drone_v2.pth"/>
   <arg name="config_name"   default="yolov3-custom.cfg"/>
   <arg name="classes_name"  default="custom.names"/>
 
@@ -13,7 +13,7 @@
   <arg name="published_image_topic" default="tracker_image"/>
 
   <!--Detection confidence-->
-  <arg name="confidence" default="0.9"/>
+  <arg name="confidence" default="0.95"/>
   <arg name="nms" default="0.1"/>
 
   <!--Node-->

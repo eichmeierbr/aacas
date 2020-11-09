@@ -3,8 +3,10 @@
 import rospy
 import numpy as np
 from sensor_msgs.msg import Joy
-from lidar_process.msg import tracked_obj_arr
-from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
+from traj_prediction.msg import tracked_obj_arr
+from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion, PoseStamped
+from visualization_msgs.msg import Marker, MarkerArray
+from nav_msgs.msg import Path
 # from scipy.spatial.transform import Rotation as R
 # from dji_m600_sim.srv import SimDroneTaskControl
 # from dji_sdk.srv import DroneTaskControl, SDKControlAuthority, SetLocalPosRef
@@ -17,6 +19,13 @@ import pyqtgraph as pg
 # pip install pyqtgraph
 import sys
 
+from PyQt5 import QtWidgets, QtGui
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QPushButton, QAction, QLineEdit, QMessageBox, QLabel, qApp, QDesktopWidget, QVBoxLayout, QSlider, QHBoxLayout
+from PyQt5.QtGui import QIcon, QDesktopServices#, QVBoxLayout
+from PyQt5.QtCore import pyqtSlot, Qt, QUrl, QTimer
+
+## Finally import the RViz bindings themselves.
+import rviz
 
 
 class Objects:
@@ -27,6 +36,7 @@ class Objects:
         self.distance = dist
         self.last_orbit_change_ = rospy.Time.now() - rospy.Duration(secs=1000)
         self.orbit = -1
+        
   
 
 class vectDisplay:
@@ -36,6 +46,9 @@ class vectDisplay:
 
         # state Information
         self.pos = np.zeros(3)
+        self.sphere_rad = .5
+        self.path = []
+        # self.pos_vec = []
         self.vel = np.zeros(3)
         self.vel_ctrl = np.zeros(4) #global coordinates
         self.yaw = 0
@@ -60,10 +73,19 @@ class vectDisplay:
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
         # rospy.Subscriber(rospy.get_param('vel_ctrl_sub_name'), Joy, self.attitude_callback, queue_size=1)
 
+        self.pub = rospy.Publisher('true_obstacles', MarkerArray, queue_size=10)
+        self.pub_path = rospy.Publisher('path', Path, queue_size=10)
+
     def position_callback(self, msg):
         pt = msg.point
         self.pos_pt = pt
         self.pos = np.array([pt.x, pt.y, pt.z])
+
+        newPose = PoseStamped()
+        newPose.header.frame_id = 'world'
+        newPose.pose.position = Point(pt.x, pt.y, pt.z)
+        self.path.append(newPose)
+        # self.pos_vec.append(self.pos)
 
     def velocity_callback(self, msg):
         pt = msg.vector
@@ -79,24 +101,115 @@ class vectDisplay:
 
 
     def updateDetections(self, msg):
+        self.trueMarkerCallback(msg)
+
         # in_detections = self.query_detections_service_(vehicle_position=self.pos_pt, attitude=self.quat)
         in_detections = msg.tracked_obj_arr
         vect_lst = []
         for obj in in_detections:
             # newObj = Objects()
-            
-            newObj = [obj.point.x,obj.point.y]
-            # print(obj)
-            # print(newObj)
-            # newObj.velocity = Point(0,0,0)
-            # newObj.id = obj.object_id
-            # newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
-            vect_lst.append(newObj)
+            if obj.time_increment == 0:
+                newObj = [obj.point.x,obj.point.y]
+                # print(obj)
+                # print(newObj)
+                # newObj.velocity = Point(0,0,0)
+                # newObj.id = obj.object_id
+                # newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
+                vect_lst.append(newObj)
             # print(len(self.detection))
         # print(self.detections,"\n")
         # print(len(vect_lst))
         self.detections = vect_lst
         # print(self.detections[0])
+
+    def trueMarkerCallback(self, msg):
+        markerArray = MarkerArray()
+        sphere_rad = self.sphere_rad
+        for detect in msg.tracked_obj_arr:
+            marker1 = Marker()
+            marker1.header.stamp = rospy.Time.now()
+            marker1.header.frame_id = "/world"
+            marker1.id = detect.object_id
+            marker1.type = marker1.SPHERE
+            marker1.action = marker1.ADD
+            marker1.pose.position.x = detect.point.x
+            marker1.pose.position.y = detect.point.y
+            marker1.pose.position.z = detect.point.z
+            marker1.pose.orientation.w = 1
+            marker1.scale.x = sphere_rad*2
+            marker1.scale.y = sphere_rad*2
+            marker1.scale.z = sphere_rad*2
+
+            marker1.color.r = 1.0
+            marker1.color.g = 0
+            marker1.color.b = 1.0
+            marker1.color.a = 0.7
+            marker1.lifetime = rospy.Duration.from_sec(0)
+            marker1.frame_locked = 0
+            markerArray.markers.append(marker1)
+        
+        marker1 = Marker()
+        marker1.header.stamp = rospy.Time.now()
+        marker1.header.frame_id = "/world"
+        marker1.id = detect.object_id+1
+        marker1.type = marker1.SPHERE
+        marker1.action = marker1.ADD
+        marker1.pose.position.x = self.pos[0]
+        marker1.pose.position.y = self.pos[1]
+        marker1.pose.position.z = self.pos[2]
+        marker1.pose.orientation.w = 1
+        marker1.scale.x = sphere_rad*2
+        marker1.scale.y = sphere_rad*2
+        marker1.scale.z = sphere_rad*2
+
+        marker1.color.r = 1.0
+        marker1.color.g = 1.0
+        marker1.color.b = 1.0
+        marker1.color.a = 0.7
+        marker1.lifetime = rospy.Duration.from_sec(0)
+        marker1.frame_locked = 0
+        markerArray.markers.append(marker1)
+        
+
+
+        self.pub.publish(markerArray)
+
+    def path_Callback(self):
+        out = Path()
+        out.poses = self.path
+        out.header.frame_id = 'world'
+        out.header.stamp = rospy.Time.now()
+        self.pub_path.publish(out)
+
+    
+    
+    # def trueMarkerCallback(self):
+    #     markerArray = MarkerArray()
+    #     sphere_rad = .2
+    #     marker1 = Marker()
+    #     marker1.header.stamp = rospy.Time.now()
+    #     marker1.header.frame_id = "/world"
+    #     marker1.id = detect.object_id
+    #     marker1.type = marker1.SQUARE
+    #     marker1.action = marker1.ADD
+    #     marker1.pose.position.x = self.pos[0]
+    #     marker1.pose.position.y = self.pos[1]
+    #     marker1.pose.position.z = self.pos[2]
+    #     marker1.pose.orientation.w = 1
+    #     marker1.scale.x = sphere_rad*2
+    #     marker1.scale.y = sphere_rad*2
+    #     marker1.scale.z = sphere_rad*2
+
+    #     marker1.color.r = 1.0
+    #     marker1.color.g = 0
+    #     marker1.color.b = 1.0
+    #     marker1.color.a = 0.7
+    #     marker1.lifetime = rospy.Duration.from_sec(0)
+    #     marker1.frame_locked = 0
+    #     markerArray.markers.append(marker1)
+
+
+    #     self.pub.publish(markerArray)
 
 
 
@@ -261,11 +374,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        self.title = "Awesome GUI"
-        self.top = 500
-        self.left = 1000
-        self.width = 700
-        self.height = 700
+        self.title = "Optimal Flight Path"
+        self.top = 0
+        self.left = 0
+        self.width = 500
+        self.height = 500
         self.multiplier = 0.8
         self.step = 1
 
@@ -294,7 +407,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.graphWidget.getPlotItem().hideAxis('bottom')
         # self.graphWidget.getPlotItem().hideAxis('left')
 
-        self.show()
+        # self.show()
         
     def constant_background(self):
 
@@ -414,6 +527,61 @@ class MainWindow(QtWidgets.QMainWindow):
     #     self.data_line2.setData(self.ox, self.oy)
 
 
+class MyViz( QWidget ):
+
+    def __init__(self):
+        QWidget.__init__(self)
+        self.top = 0
+        self.left = 570
+        self.width = 700
+        self.height = 1030
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.frame = rviz.VisualizationFrame()
+        self.frame.setSplashPath( "" )
+        self.frame.initialize()
+        reader = rviz.YamlConfigReader()
+        config = rviz.Config()
+        reader.readFile( config, "above.rviz" )
+        self.frame.load( config )
+        self.setWindowTitle( config.mapGetChild( "Title" ).getValue() )
+        self.frame.setMenuBar( None )
+        self.frame.setStatusBar( None )
+        self.frame.setHideButtonVisibility( False )
+        self.manager = self.frame.getManager()
+        self.grid_display = self.manager.getRootDisplayGroup().getDisplayAt( 0 )
+        
+        ## Here we create the layout and other widgets in the usual Qt way.
+        layout = QVBoxLayout()
+        layout.addWidget( self.frame )
+        self.setLayout( layout )
+
+class MyViz2( QWidget ):
+
+    def __init__(self):
+        QWidget.__init__(self)
+        self.top = 590
+        self.left = 0
+        self.width = 500
+        self.height = 500
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.frame = rviz.VisualizationFrame()
+        self.frame.setSplashPath( "" )
+        self.frame.initialize()
+        reader = rviz.YamlConfigReader()
+        config = rviz.Config()
+        reader.readFile( config, "behind.rviz" )
+        self.frame.load( config )
+        self.setWindowTitle( config.mapGetChild( "Title" ).getValue() )
+        self.frame.setMenuBar( None )
+        self.frame.setStatusBar( None )
+        self.frame.setHideButtonVisibility( False )
+        self.manager = self.frame.getManager()
+        self.grid_display = self.manager.getRootDisplayGroup().getDisplayAt( 0 )
+        
+        ## Here we create the layout and other widgets in the usual Qt way.
+        layout = QVBoxLayout()
+        layout.addWidget( self.frame )
+        self.setLayout( layout )
 
 
 
@@ -427,17 +595,33 @@ if __name__ == '__main__':
 
     # Launch Node
     
-
+    
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
-    sys.exit(app.exec_())
 
+
+
+    myviz = MyViz()
+    myviz2 = MyViz2()
+
+    window.show()
+    myviz.show()
+    myviz2.show()
+    # app.exec_()
+
+    # x = input("Press Any key to exit")
+    sys.exit(app.exec_())
+    # if rospy.is_shutdown():
+    #     app.exec_()
+    # if app.exec_():
+    #     sys.exit(0)
 
     # while not rospy.is_shutdown():
         # print(field.vel)
         # make_points(field.vel)
         #field.pos = numpy array
 	#do stuff
+    
    
 
 

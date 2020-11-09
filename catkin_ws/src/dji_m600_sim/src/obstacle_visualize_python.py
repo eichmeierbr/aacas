@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 from visualization_msgs.msg import Marker, MarkerArray
-from lidar_process.msg import tracked_obj, tracked_obj_arr
+from traj_prediction.msg import tracked_obj, tracked_obj_arr
 import copy
 
 
@@ -18,7 +18,7 @@ def trueMarkerCallback(msg):
     for detect in msg.tracked_obj_arr:
         marker1 = Marker()
         marker1.header.stamp = rospy.Time.now()
-        marker1.header.frame_id = "/world"
+        marker1.header.frame_id = "/local"
         marker1.id = detect.object_id
         marker1.type = marker1.SPHERE
         marker1.action = marker1.ADD
