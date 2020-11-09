@@ -102,7 +102,6 @@ void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
 void future_path_cb(nav_msgs::Path msg){
     transformed_future_path.poses.clear();
     for (int i=0 ; i<msg.poses.size();i++){
-        std::cout << msg.poses[i].pose.position.x << std::endl;
         auto x = msg.poses[i].pose.position.x;
         auto y = msg.poses[i].pose.position.y;
         auto z = msg.poses[i].pose.position.z;
