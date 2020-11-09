@@ -86,6 +86,7 @@ class vectDisplay:
         newPose.header.frame_id = 'world'
         newPose.pose.position = Point(pt.x, pt.y, pt.z)
         self.path.append(newPose)
+        self.path_Callback()
         # self.pos_vec.append(self.pos)
 
     def velocity_callback(self, msg):
