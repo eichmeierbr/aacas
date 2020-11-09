@@ -70,6 +70,7 @@ class vectDisplay:
         rospy.Subscriber(rospy.get_param('obstacle_trajectory_topic'), tracked_obj_arr, self.updateDetections, queue_size=1) 
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
+        rospy.Subscriber('aacas_velocity', Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
         # rospy.Subscriber(rospy.get_param('vel_ctrl_sub_name'), Joy, self.attitude_callback, queue_size=1)
 
@@ -123,6 +124,7 @@ class vectDisplay:
         # print(self.detections[0])
 
     def trueMarkerCallback(self, msg):
+        
         markerArray = MarkerArray()
         sphere_rad = self.sphere_rad
         for detect in msg.tracked_obj_arr:
@@ -144,31 +146,31 @@ class vectDisplay:
             marker1.color.g = 0
             marker1.color.b = 1.0
             marker1.color.a = 0.7
-            marker1.lifetime = rospy.Duration.from_sec(0)
+            marker1.lifetime = rospy.Duration.from_sec(.2)
             marker1.frame_locked = 0
             markerArray.markers.append(marker1)
         
-        marker1 = Marker()
-        marker1.header.stamp = rospy.Time.now()
-        marker1.header.frame_id = "/world"
-        marker1.id = detect.object_id+1
-        marker1.type = marker1.SPHERE
-        marker1.action = marker1.ADD
-        marker1.pose.position.x = self.pos[0]
-        marker1.pose.position.y = self.pos[1]
-        marker1.pose.position.z = self.pos[2]
-        marker1.pose.orientation.w = 1
-        marker1.scale.x = sphere_rad*2
-        marker1.scale.y = sphere_rad*2
-        marker1.scale.z = sphere_rad*2
+        # marker1 = Marker()
+        # marker1.header.stamp = rospy.Time.now()
+        # marker1.header.frame_id = "/world"
+        # marker1.id = detect.object_id+1
+        # marker1.type = marker1.SPHERE
+        # marker1.action = marker1.ADD
+        # marker1.pose.position.x = self.pos[0]
+        # marker1.pose.position.y = self.pos[1]
+        # marker1.pose.position.z = self.pos[2]
+        # marker1.pose.orientation.w = 1
+        # marker1.scale.x = sphere_rad*2
+        # marker1.scale.y = sphere_rad*2
+        # marker1.scale.z = sphere_rad*2
 
-        marker1.color.r = 1.0
-        marker1.color.g = 1.0
-        marker1.color.b = 1.0
-        marker1.color.a = 0.7
-        marker1.lifetime = rospy.Duration.from_sec(0)
-        marker1.frame_locked = 0
-        markerArray.markers.append(marker1)
+        # marker1.color.r = 1.0
+        # marker1.color.g = 1.0
+        # marker1.color.b = 1.0
+        # marker1.color.a = 0.7
+        # marker1.lifetime = rospy.Duration.from_sec(0.2)
+        # marker1.frame_locked = 0
+        # markerArray.markers.append(marker1)
         
 
 
@@ -276,7 +278,7 @@ def make_points(field):
     return x,y
 
 def get_obj(field):
-    a = field.detections
+    a = field.detections[:]
     our_x = field.pos[0]
     our_y = field.pos[1]
     old_detect = a
@@ -302,7 +304,7 @@ def get_obj(field):
 
 def update_obj(field,oold,old_detect):
 
-    a = field.detections
+    a = field.detections[:]
     our_x = field.pos[0]
     our_y = field.pos[1]
     # a = smooth_obj(a,old_detect,.9)
