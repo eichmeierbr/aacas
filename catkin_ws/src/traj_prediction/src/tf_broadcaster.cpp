@@ -16,13 +16,14 @@ uint32_t drone_shape = visualization_msgs::Marker::CYLINDER;
 geometry_msgs::Quaternion geom_quat;
 nav_msgs::Path detected_path;
 nav_msgs::Path predicted_path;
+nav_msgs::Path transformed_future_path;
+
 nav_msgs::Path drone_traj;
 visualization_msgs::Marker drone_marker;
 visualization_msgs::MarkerArray marker_array;
 float transform_z_offset;
 
-std::string fixed_frame = "velodyne";
-// std::string fixed_frame = "vehicle_center_link";
+std::string fixed_frame = "drone_frame";
 
 void attitude_cb(const geometry_msgs::QuaternionStamped& msg){
   geom_quat = msg.quaternion;
@@ -86,8 +87,8 @@ void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
     drone_marker.scale.z = 1.0;
 
     // Set the color -- be sure to set alpha to something non-zero!
-    drone_marker.color.r = 1.0f;
-    drone_marker.color.g = 0.0f;
+    drone_marker.color.r = 0.0f;
+    drone_marker.color.g = 1.0f;
     drone_marker.color.b = 0.0f;
     drone_marker.color.a = 1.0;
 
@@ -95,6 +96,42 @@ void drone_pos_cb(const::geometry_msgs::PointStamped msg ){
     marker_array.markers.push_back(drone_marker);
 
 }
+
+
+
+void future_path_cb(nav_msgs::Path msg){
+    transformed_future_path.poses.clear();
+    for (int i=0 ; i<msg.poses.size();i++){
+        auto x = msg.poses[i].pose.position.x;
+        auto y = msg.poses[i].pose.position.y;
+        auto z = msg.poses[i].pose.position.z;
+        static tf::TransformBroadcaster br;
+        tf::Transform transform;
+        transform.setOrigin( tf::Vector3(x,y,z));
+
+        // Create Quaternion
+        tf::Quaternion q(geom_quat.x, geom_quat.y, geom_quat.z, geom_quat.w);
+        q.normalize();
+        transform.setRotation(q);
+
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", fixed_frame));
+
+        // Update and Send Path
+        transformed_future_path.header = msg.header;
+        transformed_future_path.header.frame_id = fixed_frame;
+        geometry_msgs::PoseStamped pose;
+        pose.header = msg.header;
+        pose.header.frame_id = fixed_frame;
+        pose.pose.position.x= msg.poses[i].pose.position.x;
+        pose.pose.position.y = msg.poses[i].pose.position.y;
+        pose.pose.position.z = msg.poses[i].pose.position.z;
+        // pose.pose.orientation = geom_quat;
+        transformed_future_path.poses.push_back(pose);
+    }
+}
+
+
+
 
 void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
     for (auto& it : msg.tracked_obj_arr) {
@@ -263,6 +300,7 @@ int main(int argc, char** argv){
   ros::Publisher drone_traj_pub = node.advertise<nav_msgs::Path>("drone_traj", 10);
   ros::Publisher predicted_path_pub = node.advertise<nav_msgs::Path>("predicted_path", 10);
   ros::Publisher detected_path_pub = node.advertise<nav_msgs::Path>("detected_path", 10);
+  ros::Publisher transformed_future_path_pub = node.advertise<nav_msgs::Path>("transformed_future_path", 10);
   ros::Publisher marker_pub = node.advertise<visualization_msgs::MarkerArray>("visualization_marker", 1);
 
   std::string position_topic, attitude_topic;
@@ -271,11 +309,13 @@ int main(int argc, char** argv){
   std::string predicted_pos_topic = "/predicted_obj_pos_arr";
   std::string drone_attitude_topic = "/dji_sdk/attitude";
   std::string drone_pos_topic = "/dji_sdk/local_position";
+  std::string planned_path_topic = "future_path";
 
   ros::Subscriber pos_sub = node.subscribe(actual_pos_topic, 10, &tracked_obj_cb);
   ros::Subscriber predicted_pos_sub = node.subscribe(predicted_pos_topic, 10, &predicted_obj_cb);
   ros::Subscriber att_sub = node.subscribe(drone_attitude_topic, 10, &attitude_cb);
   ros::Subscriber drone_pos_sub = node.subscribe(drone_pos_topic, 10, &drone_pos_cb);
+  ros::Subscriber future_path_sub = node.subscribe(planned_path_topic,10,&future_path_cb);
 
   ros::Rate loop_rate(10);
 //   while(detected_path.poses.size() < 1){
@@ -291,6 +331,7 @@ int main(int argc, char** argv){
     predicted_path_pub.publish(predicted_path);
     detected_path_pub.publish(detected_path);
     drone_traj_pub.publish(drone_traj);
+    transformed_future_path_pub.publish(transformed_future_path);
     marker_pub.publish(marker_array);
     marker_array.markers.clear();
 
