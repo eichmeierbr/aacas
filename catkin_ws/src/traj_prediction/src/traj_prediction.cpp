@@ -122,6 +122,10 @@ class traj_predictor{
                     prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
                     publisher(pred_result, x.first);
              }
+             else{
+                traj_prediction::tracked_obj_arr obj_pred_arr_msg;
+                obj_trajectory_pub.publish(obj_pred_arr_msg);
+             }
              
          }
 

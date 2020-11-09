@@ -137,10 +137,9 @@ void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
 
         marker.lifetime = ros::Duration(0.1);
         // marker_array.markers.push_back(marker);
-        for (int i=0; i <  marker_array.markers.size(); i++){
-            std::cout<<"Remaining Marker ID" << marker_array.markers[i].id << std::endl;
-        }
-        std::cout << "" << std::endl;
+        // for (int i=0; i <  marker_array.markers.size(); i++){
+        //     std::cout<<"Remaining Marker ID" << marker_array.markers[i].id << std::endl;
+        // }
 
 
         // std::cout << marker_array.markers.size() << std::endl;
