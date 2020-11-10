@@ -298,7 +298,7 @@ class safety_checker:
            rospy.logerr(self,"Weak GPS, current signal: %d/5", self.gps_health)
            return False
 
-        if (rospy.Time.now() - self.last_gps).to_sec() > self.gps_delay:
+        if (rospy.Time.now() - self.last_gps_health).to_sec() > self.gps_delay:
             rospy.logerr('Lost GPS Signal')
             return False
         return True

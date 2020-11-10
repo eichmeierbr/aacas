@@ -5,6 +5,7 @@
   <rosparam command="load" file="$(find dji_m600_sim)/config/dji_sdk_sim_params.yaml"/>
   <rosparam command="load" file="$(find aacas_motion)/config/vector_field_planner_params.yaml"/>
   <rosparam command="load" file="$(find aacas_detection)/config/multi_obstacle_params.yaml"/>
+  <rosparam command="load" file="$(find aacas_motion)/config/safety_params.yaml"/>
 
 
   <node name="dji_sdk_sim" pkg="dji_m600_sim" type="dji_sdk_sim.py" output="screen" />
@@ -18,5 +19,7 @@
   <arg name="move_start_delay" default="5.0" />  
   <node name="sim_pilot" pkg="aacas_motion" type="sim_pilot.py" output="screen" /> 
   <node name="vectFieldPath" pkg="aacas_motion" type="vectFieldPath.py" launch-prefix="bash -c 'sleep $(arg move_start_delay); $0 $@' " output="screen" /> 
+  <node name="aacas_safety_checks" pkg="aacas" type="aacas_safety_checks.py" output="screen" /> 
+
 
 </launch>
