@@ -76,7 +76,7 @@ class vectFieldController:
 
 
         # Publisher Information
-        self.vel_ctrl_pub_ = rospy.Publisher('aacas_velocity', Joy, queue_size=10)
+        self.vel_ctrl_pub_ = rospy.Publisher(rospy.get_param('velocity_desired_name', default='aacas_velocity'), Joy,queue_size=10)
 
         self.goal_pub_ = rospy.Publisher('current_goal', Point, queue_size=10)
         self.future_path_pub_ = rospy.Publisher('future_path', Path, queue_size=10)
