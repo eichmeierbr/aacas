@@ -40,6 +40,7 @@ class safety_checker:
         self.yaw_rate = 0
         self.quat = Quaternion()
         self.is_safe = False
+        self.has_taken_off = False
 
         # safety check constraints
         self.x_constraint   = rospy.get_param('x_constraint', default=[-15, 15])
@@ -147,6 +148,8 @@ class safety_checker:
         pt = msg.point
         self.pos = np.array([pt.x, pt.y, pt.z])
         self.last_pos = rospy.Time.now()
+        if self.pos[2] > self.z_constraint[0]:
+            self.has_taken_off = True
 
     def velocity_callback(self, msg):
         pt = msg.vector
@@ -267,7 +270,7 @@ class safety_checker:
             rospy.logerr_throttle(2,"Drone too high. Current height: %.2f", self.height_above_takeoff)
             return False
         # elif self.height_above_takeoff < 0.5:
-        elif self.pos[2] < self.z_constraint[0]:
+        elif self.pos[2] < self.z_constraint[0] and self.has_taken_off:
             rospy.logerr_throttle(2,"Drone too low. Current height: %.2f", self.height_above_takeoff)
             # return False
         return True
