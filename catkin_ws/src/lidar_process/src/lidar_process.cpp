@@ -327,6 +327,7 @@ class pc_process{
 
     void publisher(){
         lidar_process::tracked_obj_arr tracked_objs;
+        tracked_objs.header.stamp = ros::Time::now();
         for (auto const& x : instance_pos_dict)
         {           
             lidar_process::tracked_obj tracked_obj_msg;
