@@ -181,13 +181,13 @@ class traj_predictor{
     }
 
  void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
+        this->curr_time = msg.header.stamp;
         for (auto& it : msg.tracked_obj_arr) {
             struct instance_pos obj;
                 obj.x = it.point.x;
                 obj.y = it.point.y;
                 obj.z = it.point.z;
                 obj_labels->insert({it.object_id, it.object_label});
-                this->curr_time = it.header.stamp;
                 if (!obj_poses_dict->count(it.object_id)){
                     vector<pair<ros::Time, instance_pos>> tmp_vec;
                     tmp_vec.push_back(make_pair(it.header.stamp,obj));
