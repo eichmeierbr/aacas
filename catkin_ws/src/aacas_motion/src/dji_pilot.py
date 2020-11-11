@@ -179,7 +179,10 @@ if __name__ == '__main__':
 
     ########### Takeoff Control ###############
     rospy.loginfo("LAUNCH")
-    resp1 = pilot.takeoff_service(4)
+    resp1 = False
+    while resp1 == False:
+        resp1 = pilot.takeoff_service(4)
+        rate.sleep()
 
     rospy.sleep(5)
 
@@ -201,7 +204,7 @@ if __name__ == '__main__':
         rospy.logerr("Unsafe condition detected. Land and relaunch to restart.")
         resp1 = pilot.takeoff_service(6)
         ##
-
+    pilot.can_command = False
     resp1 = pilot.authority_service(0)
 
 

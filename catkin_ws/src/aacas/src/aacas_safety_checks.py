@@ -214,7 +214,7 @@ class safety_checker:
             velocity = np.linalg.norm(self.vel[:2])
 
         if velocity > self.v_max:
-            rospy.logerr("Unsafe Velocity: V=%.2f", velocity)
+            rospy.logerr_throttle(1,"Unsafe Velocity: V=%.2f" %(velocity))
             return False
 
         if (rospy.Time.now() - self.last_vel).to_sec() > self.vel_delay:
@@ -227,11 +227,11 @@ class safety_checker:
         # Position constraints are set in vector_field_planner_params.yaml
         # x_constraint: [xmin, xmax]
         if np.any([self.x_constraint[0] > self.pos[0], self.pos[0] > self.x_constraint[1]]):
-            rospy.logerr("Unsafe X Position: X=%.2f", self.pos[0])
+            rospy.logerr_throttle(1,"Unsafe X Position: X=%.2f" %(self.pos[0]))
             return False
 
         if (rospy.Time.now() - self.last_pos).to_sec() > self.pos_delay:
-            rospy.logerr(1, 'Lost Position Signal')
+            rospy.logerr('Lost Position Signal')
             return False
 
         return True
@@ -241,7 +241,7 @@ class safety_checker:
         # Position constraints are set in vector_field_planner_params.yaml
         # y_constraint: [ymin, ymax]
         if np.any([self.y_constraint[0] > self.pos[1], self.pos[1] > self.y_constraint[1]]):
-            rospy.logerr("Unsafe X Position: Y=%.2f", self.pos[1])
+            rospy.logerr_throttle(1,"Unsafe Y Position: Y=%.2f" %(self.pos[1]))
             return False
 
         return True
@@ -267,18 +267,18 @@ class safety_checker:
     def heightAboveTakeoffCheck(self):
         # if self.heightAboveTakeoffCheck > self.h_max:
         if self.pos[2] > self.z_constraint[1]:
-            rospy.logerr_throttle(2,"Drone too high. Current height: %.2f", self.height_above_takeoff)
+            rospy.logerr_throttle(2,"Drone too high. Current height: %.2f" %(self.pos[2]))
             return False
         # elif self.height_above_takeoff < 0.5:
         elif self.pos[2] < self.z_constraint[0] and self.has_taken_off:
-            rospy.logerr_throttle(2,"Drone too low. Current height: %.2f", self.height_above_takeoff)
+            rospy.logerr_throttle(2,"Drone too low. Current height: %.2f" %(self.pos[2]))
             # return False
         return True
 
 
     def attitudeCheck(self):
         if np.any([self.roll > self.max_tilt, self.pitch>self.max_tilt]):
-            rospy.logerr('Unsafe Attitude. Tilt=%f' %(180/np.pi*max(self.roll, self.pitch)))
+            rospy.logerr_throttle(0.5,'Unsafe Attitude. Tilt=%f' %(180/np.pi*max(self.roll, self.pitch)))
             return False
 
         if (rospy.Time.now() - self.last_attitude).to_sec() > self.attitude_delay:
@@ -298,7 +298,7 @@ class safety_checker:
 
     def gpsHealthCheck(self):
         if self.gps_health < self.min_gps:
-           rospy.logerr(self,"Weak GPS, current signal: %d/5", self.gps_health)
+           rospy.logerr("Weak GPS, current signal: %d", self.gps_health)
            return False
 
         if (rospy.Time.now() - self.last_gps_health).to_sec() > self.gps_delay:
