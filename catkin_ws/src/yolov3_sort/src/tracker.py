@@ -67,6 +67,7 @@ class Tracker():
         self.published_image_topic = rospy.get_param('~published_image_topic')
 
         self.pub = rospy.Publisher(self.tracked_objects_topic, BoundingBoxes, queue_size=10)
+	self.raw_pub = rospy.Publisher("/raw_bboxes", BoundingBoxes, queue_size=10)
         self.img_pub = rospy.Publisher(self.published_image_topic, Image, queue_size=10)
         rospy.loginfo("Launched node for object tracking.")
 
@@ -80,13 +81,13 @@ class Tracker():
             print(e)
 
         # Store tracking results
-        bboxes = BoundingBoxes()
-        bboxes.header = data.header
-        bboxes.image_header = data.header
+        raw_bboxes = BoundingBoxes()
+        raw_bboxes.header = data.header
+        raw_bboxes.image_header = data.header
 
         yolo_boxes = self.yolo.detect(cv_image)
 
-        """for [x, y, w, h, c] in yolo_boxes:
+        for [x, y, w, h, c] in yolo_boxes:
             bbox_msg = BoundingBox()
             bbox_msg.xmin = x
             bbox_msg.ymin = y
@@ -94,7 +95,11 @@ class Tracker():
             bbox_msg.ymax = y + h
             bbox_msg.label = c
             bbox_msg.idx = 0
-            bboxes.bounding_boxes.append(bbox_msg)"""
+            raw_bboxes.bounding_boxes.append(bbox_msg)
+
+        bboxes = BoundingBoxes()
+        bboxes.header = data.header
+        bboxes.image_header = data.header
 
         for tr in self.tracklets:
             tr.setActive(False)
@@ -149,6 +154,7 @@ class Tracker():
                     #rospy.loginfo(str(tr.length))
 
         self.pub.publish(bboxes)
+	self.raw_pub.publish(raw_bboxes)
         self.visualize(bboxes, cv_image)
 
         return True
