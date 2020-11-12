@@ -51,12 +51,10 @@ class Tracklet():
                               [0,1,0,0,0,0,0,0,0,0],
                               [0,0,1,0,0,0,0,0,0,0],
                               [0,0,0,1,0,0,0,0,0,0]],dtype=float)
-
-        #self.kf.B = np.array([[dt, 0, 0, 0, 1, 0, 0, 0, 0, 0], 
-        #                      [0, dt, 0, 0, 0, 1, 0, 0, 0, 0]]).T
-
-        self.kf.B = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
-                              [0, 1, 0, 0, 0, 0, 0, 0, 0, 0]]).T
+        #self.kf.B = np.identity(10)
+        #self.kf.B[0:3,0:3] = np.array([[574.0198, 0.0, 318.1983],[0.0, 575.2453, 246.5657],[0.0, 0.0, 1.0]])
+        self.kf.B = np.array([[dt, 0, 0, 0, 1, 0, 0, 0, 0, 0], 
+                              [0, dt, 0, 0, 0, 1, 0, 0, 0, 0]]).T
 
 
         if self.csrt:
@@ -72,7 +70,7 @@ class Tracklet():
         self.kf.Q[4:,4:] *= 100 #1000
         self.kf.Q[8:,8:] *= 100
 
-    def predict(self, u=None, csrt_det=None):
+    def predict(self, u, csrt_det=None):
         """
         Makes prediction of the current state.
         If using CSRT, predict state with CSRT bounding box as control input.
@@ -81,10 +79,13 @@ class Tracklet():
         Input:  csrt_det = np.array([x, y, w, h])
         Output: None
         """
-        if u is None:
-            self.kf.predict()
-        else:
+        if self.csrt:
+            u = np.array(csrt_det)[np.newaxis].T
             self.kf.predict(u)
+        else:
+            large_u = np.identity(10)
+            large_u[0:4,0:4] = u
+            self.kf.predict(large_u)
 
     def update(self, yolo_det):
         """
