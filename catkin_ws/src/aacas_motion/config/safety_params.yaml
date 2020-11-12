@@ -1,0 +1,19 @@
+# Safety Parameters
+x_constraint:     [-15.0, 15.0]
+y_constraint:     [-5.0, 25.0]
+z_constraint:     [0.5, 15]
+position_delay:   1 # Throw error
+
+max_pitch_roll:   1.05
+attitude_delay:   1 # Throw error
+
+
+unsafe_velocity:  5
+velocity_delay:   10  # Throw warning
+
+min_gps_health:   4
+gps_delay:        1   # Throw error
+
+battery_delay:    2   # Throw warning   
+
+rc_delay:         0.5

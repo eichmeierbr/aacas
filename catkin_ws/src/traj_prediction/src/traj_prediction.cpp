@@ -50,9 +50,9 @@ class traj_predictor{
     // order of the polynomial used for prediction
     int pred_poly_order;
     //seconds into the future that we want to predict
-    int secs_into_future = 2;
+    int secs_into_future = 0;
     //the number of interpolated time stamps between now and the last future time stamp for prediction
-    int interlopated_pnts =4;
+    int interlopated_pnts =1;
     // the number of position points availabel before the trajectory prediction is activated 
     int pred_pnt_thresh; 
 
@@ -74,56 +74,51 @@ class traj_predictor{
 
     }
 
-    void publisher( prediction_result* pred_result, int obj_id){
-        traj_prediction::tracked_obj_arr obj_pred_arr_msg;
-
-        for (int i =0; i < pred_result -> prediction.rows(); i++){
-            traj_prediction::tracked_obj pred_obj_msg;
-            pred_obj_msg.object_id = obj_id; 
-            geometry_msgs::Point point;
-            geometry_msgs::Point acc;
-            geometry_msgs::Point vel;
-
-            vel.x = pred_result->x_beta(1,0);
-            vel.y = pred_result->y_beta(1,0);
-            vel.z = pred_result->z_beta(1,0);
-
-            if (pred_poly_order == 1){
-                acc.x = 0;
-                acc.y = 0;
-                acc.z = 0;
-            }
-            else{
-                acc.x =pred_result->x_beta(2,0);
-                acc.y =pred_result->y_beta(2,0);
-                acc.z =pred_result->z_beta(2,0);
-            }            
-
-            point.x = pred_result->prediction(i,0);
-            point.y = pred_result->prediction(i,1);
-            point.z = pred_result->prediction(i,2);
-            pred_obj_msg.point = point;
-            pred_obj_msg.acc = acc;
-            pred_obj_msg.vel = vel;
-            pred_obj_msg.header.stamp = pred_result->prediction_time;
-            pred_obj_msg.time_increment=  pred_result -> prediction(i,3);
-            obj_pred_arr_msg.tracked_obj_arr.push_back(pred_obj_msg);
-        }
-
-        obj_trajectory_pub.publish(obj_pred_arr_msg);
-        // obj_pred_coeff_pub.publish(obj_pred_coeff_msg);
-        delete pred_result;
-    }
 
     void predict_traj(){
+        traj_prediction::tracked_obj_arr obj_pred_arr_msg;
          for (auto &x : *obj_poses_dict){
              //only predict if there are at least 40 past data points
              if (x.second.size() > pred_pnt_thresh){
                     prediction_result* pred_result = poly_predict(pred_poly_order, x.first);
-                    publisher(pred_result, x.first);
+                    for (int i =0; i < pred_result -> prediction.rows(); i++){
+                        traj_prediction::tracked_obj pred_obj_msg;
+                        pred_obj_msg.object_id = x.first; 
+                        geometry_msgs::Point point;
+                        geometry_msgs::Point acc;
+                        geometry_msgs::Point vel;
+
+                        vel.x = pred_result->x_beta(1,0);
+                        vel.y = pred_result->y_beta(1,0);
+                        vel.z = pred_result->z_beta(1,0);
+
+                        if (pred_poly_order == 1){
+                            acc.x = 0;
+                            acc.y = 0;
+                            acc.z = 0;
+                        }
+                        else{
+                            acc.x =pred_result->x_beta(2,0);
+                            acc.y =pred_result->y_beta(2,0);
+                            acc.z =pred_result->z_beta(2,0);
+                        }            
+
+                        point.x = pred_result->prediction(i,0);
+                        point.y = pred_result->prediction(i,1);
+                        point.z = pred_result->prediction(i,2);
+                        pred_obj_msg.point = point;
+                        pred_obj_msg.acc = acc;
+                        pred_obj_msg.vel = vel;
+                        pred_obj_msg.header.stamp = pred_result->prediction_time;
+                        pred_obj_msg.time_increment=  pred_result -> prediction(i,3);
+                        obj_pred_arr_msg.tracked_obj_arr.push_back(pred_obj_msg);
+                    }
+                    delete pred_result;
              }
-             
+
          }
+        obj_trajectory_pub.publish(obj_pred_arr_msg);
+
 
     }
 
@@ -163,7 +158,7 @@ class traj_predictor{
         Eigen::MatrixXf T_pred(interlopated_pnts,1);
 
         for (int i =0 ; i < interlopated_pnts; i++){
-            float time_stamp = (float)(secs_into_future/(float)interlopated_pnts)*(i+1); 
+            float time_stamp = (float)(secs_into_future/(float)interlopated_pnts)*(i); 
             T_pred(i,0) = time_stamp;
             for (int j=0; j <= order ;j++){
                 future_T(i,j) = pow(time_stamp, j);
@@ -186,13 +181,13 @@ class traj_predictor{
     }
 
  void tracked_obj_cb(const lidar_process::tracked_obj_arr msg){
+        this->curr_time = msg.header.stamp;
         for (auto& it : msg.tracked_obj_arr) {
             struct instance_pos obj;
                 obj.x = it.point.x;
                 obj.y = it.point.y;
                 obj.z = it.point.z;
                 obj_labels->insert({it.object_id, it.object_label});
-                this->curr_time = it.header.stamp;
                 if (!obj_poses_dict->count(it.object_id)){
                     vector<pair<ros::Time, instance_pos>> tmp_vec;
                     tmp_vec.push_back(make_pair(it.header.stamp,obj));

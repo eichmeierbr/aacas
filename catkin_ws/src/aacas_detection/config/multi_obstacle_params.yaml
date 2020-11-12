@@ -2,15 +2,15 @@ obstacle_trajectory_topic: 'predicted_obj_pos_arr'
 true_obstacle_topic: 'obstacle_information'
 
 # Fake Detector Parameters
-object_position_noise: 0.3
-object_velocity_noise: 0.3
-object_detection_rate: 0.9
-object_detection_dist: 10.0
+# object_position_noise: 0.3
+# object_velocity_noise: 0.3
+# object_detection_rate: 0.9
+# object_detection_dist: 10.0
 
-# object_position_noise: 0.0
-# object_velocity_noise: 0.0
-# object_detection_rate: 0.99
-# object_detection_dist: 20.0
+object_position_noise: 0.0
+object_velocity_noise: 0.0
+object_detection_rate: 0.99
+object_detection_dist: 20.0
 
 # Obstacle position parameters
 # ob_start_x: [10]
@@ -39,7 +39,7 @@ ob_vel_x: 0
 ob_vel_y: 0
 ob_vel_z: 0
 
-travel_dist: 15
+travel_dist: 50
 
 nr_of_obstacles: 1
 
