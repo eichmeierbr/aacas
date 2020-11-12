@@ -69,13 +69,13 @@ class vectDisplay:
 
         rospy.Subscriber(rospy.get_param('obstacle_trajectory_topic'), tracked_obj_arr, self.updateDetections, queue_size=1) 
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
-        rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
-        rospy.Subscriber('aacas_velocity', Vector3Stamped,    self.velocity_callback, queue_size=1)
+        # rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
+        rospy.Subscriber('aacas_velocity', Joy,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
         # rospy.Subscriber(rospy.get_param('vel_ctrl_sub_name'), Joy, self.attitude_callback, queue_size=1)
 
         self.pub = rospy.Publisher('true_obstacles', MarkerArray, queue_size=10)
-        self.pub_path = rospy.Publisher('path', Path, queue_size=10)
+        self.pub_path = rospy.Publisher('shaun_path', Path, queue_size=10)
 
     def position_callback(self, msg):
         pt = msg.point
@@ -90,8 +90,11 @@ class vectDisplay:
         # self.pos_vec.append(self.pos)
 
     def velocity_callback(self, msg):
-        pt = msg.vector
-        self.vel = np.array([pt.x, pt.y, pt.z])
+        # pt = msg.vector
+        # v = msg.axes
+        # self.vel = np.array([pt.x, pt.y, pt.z])
+        self.vel = msg.axes[:3]
+
 
     def attitude_callback(self, msg):
         q = msg.quaternion
@@ -212,7 +215,7 @@ class vectDisplay:
     #     markerArray.markers.append(marker1)
 
 
-    #     self.pub.publish(markerArray)
+        self.pub.publish(markerArray)
 
 
 
