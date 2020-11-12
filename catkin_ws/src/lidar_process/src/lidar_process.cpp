@@ -67,11 +67,8 @@ class pc_process{
     ros::Subscriber drone_pos_sub;
     ros::Subscriber drone_orient_sub;
     ros::Publisher tracked_obj_pub;
-<<<<<<< HEAD
     ros::Publisher tracked_obj_pub_local;
 
-=======
->>>>>>> 46c28ccc0e8acd2e394dbdc1810a2944c5def0ef
     // Input Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
     // Cropped Cloud
@@ -114,12 +111,9 @@ class pc_process{
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
-<<<<<<< HEAD
         tracked_obj_pub_local = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr_local", 1);
 
 
-=======
->>>>>>> 46c28ccc0e8acd2e394dbdc1810a2944c5def0ef
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
                     0.0, 575.2453, 246.5657, 
