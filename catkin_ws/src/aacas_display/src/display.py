@@ -59,23 +59,16 @@ class vectDisplay:
         self.detections = []
 
         # Publisher Information
-        #vel_ctrl_pub_name = rospy.get_param('vel_ctrl_sub_name')
-        #self.vel_ctrl_pub_ = rospy.Publisher(vel_ctrl_pub_name, Joy, queue_size=10)
-
-        #pos_ctrl_pub_name = rospy.get_param('pos_ctrl_sub_name')
-        #self.pos_ctrl_pub_ = rospy.Publisher(pos_ctrl_pub_name, Joy, queue_size=10)
+        self.pub = rospy.Publisher('true_obstacles', MarkerArray, queue_size=10)
+        self.pub_path = rospy.Publisher('shaun_path', Path, queue_size=10)
 
         # Subscriber Information
-
         rospy.Subscriber(rospy.get_param('obstacle_trajectory_topic'), tracked_obj_arr, self.updateDetections, queue_size=1) 
         rospy.Subscriber(rospy.get_param('position_pub_name'), PointStamped,      self.position_callback, queue_size=1)
         # rospy.Subscriber(rospy.get_param('velocity_pub_name'), Vector3Stamped,    self.velocity_callback, queue_size=1)
         rospy.Subscriber('aacas_velocity', Joy,    self.velocity_callback, queue_size=1)
         rospy.Subscriber(rospy.get_param('attitude_pub_name'), QuaternionStamped, self.attitude_callback, queue_size=1)
         # rospy.Subscriber(rospy.get_param('vel_ctrl_sub_name'), Joy, self.attitude_callback, queue_size=1)
-
-        self.pub = rospy.Publisher('true_obstacles', MarkerArray, queue_size=10)
-        self.pub_path = rospy.Publisher('shaun_path', Path, queue_size=10)
 
     def position_callback(self, msg):
         pt = msg.point
