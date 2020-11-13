@@ -5,6 +5,8 @@ velocity_pub_name: "dji_sdk/velocity"
 position_pub_name: "dji_sdk/local_position"
 height_pub_name: "dji_sdk/height_above_takeoff"
 
+velocity_desired_name: "aacas_velocity"
+
 ## Subscriber Information
 pos_ctrl_sub_name: "dji_sdk/flight_control_setpoint_ENUposition_yaw"
 vel_ctrl_sub_name: "dji_sdk/flight_control_setpoint_ENUvelocity_yawrate"

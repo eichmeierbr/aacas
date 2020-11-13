@@ -3,6 +3,8 @@
 from __future__ import division
 
 from sort import iou, Tracklet
+from detector import Detector
+#from models import models 
 import cv2
 import numpy as np
 import os, sys
@@ -108,10 +110,10 @@ class Tracker():
             pt = obj.point
             self.XYZ[idx] = np.array([[pt.y], [pt.z], [pt.x], [1.]])
 
-    def bbox_callback(self, msg): # get detections from bag
-        self.bboxes = []
-        for b in msg.bounding_boxes:
-            self.bboxes.append(np.array([b.xmin, b.ymin, b.xmax-b.xmin, b.ymax-b.ymin, b.label]))
+    #def bbox_callback(self, msg): # get detections from bag
+    #    self.bboxes = []
+    #    for b in msg.bounding_boxes:
+    #        self.bboxes.append(np.array([b.xmin, b.ymin, b.xmax-b.xmin, b.ymax-b.ymin, b.label]))
 
     def yaw_pitch_roll(self):
         q0, q1, q2, q3 = self.quat[0],self.quat[1], self.quat[2], self.quat[3]
@@ -208,8 +210,10 @@ class Tracker():
             bbox_msg.xmax = x + w
             bbox_msg.ymax = y + h
             bbox_msg.label = c
-            bbox_msg.idx = 0
+            bbox_msg.idx = -1
             raw_bboxes.bounding_boxes.append(bbox_msg)
+
+	self.raw_pub.publish(raw_bboxes)
 
         # Store tracking results
         bboxes = BoundingBoxes()
@@ -217,11 +221,12 @@ class Tracker():
         bboxes.image_header = data.header
         
         self.update_drone_relative_transform()
-        self.compute_u()
-        print(self.XYZ[0])
+        #self.compute_u()
+        #print(self.XYZ[0])
         
         for tr in self.tracklets:
-            tr.predict(self.u[tr.idx]) # incorporate control inputs to existing tracklets, assign by idx
+            #tr.predict(self.u[tr.idx]) # incorporate control inputs to existing tracklets, assign by idx
+            tr.predict()
             tr.setActive(False)
 
         #print(self.bboxes)
@@ -269,7 +274,7 @@ class Tracker():
                     self.tracklets.remove(tr)
 
         self.pub.publish(bboxes)
-	self.raw_pub.publish(raw_bboxes)
+	
         self.visualize(bboxes, cv_image)
 
         return True

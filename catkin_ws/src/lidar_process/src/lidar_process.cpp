@@ -27,7 +27,7 @@
 #include <vector>
 #include <typeinfo> 
 #include <unordered_map>
-#include<cmath>
+#include <cmath>
 #include <fstream>
 #include <lidar_process/tracked_obj.h>
 #include <lidar_process/tracked_obj_arr.h>
@@ -43,10 +43,9 @@ struct instance_pos{
     float avg;
     float std;
     int object_label;
+    int object_id;
 };
 
-// The map that stores the position of detected objects. Key:object_id. Value:Object position
-unordered_map<int ,instance_pos*> instance_pos_dict;
 
 class pc_process{
     private:
@@ -54,11 +53,14 @@ class pc_process{
     float ty;
     float tz;
     float buffer;
+    int detect_range;
 
-    sensor_msgs::PointCloud2 pub_cloud;
     yolov3_sort::BoundingBox bb;
     yolov3_sort:: BoundingBoxes bbox_msg;
     sensor_msgs::PointCloud2ConstPtr point_cloud_msg;
+    // The map that stores the position of detected objects. Key:object_id. Value:Object position
+    unordered_map<int ,instance_pos*> instance_pos_dict;
+    // vector<instance_pos*> instance_pos_dict;
 
     ros::Subscriber cloud_sub;
     ros::Subscriber bb_sub;
@@ -103,14 +105,13 @@ class pc_process{
         n.getParam("ty", ty);
         n.getParam("tz", tz);
         n.getParam("buffer", buffer);
-
+        n.getParam("detect_range", detect_range);
         drone_pos_sub = n.subscribe("/dji_sdk/local_position", 10, &pc_process::drone_pos_cb,this);
         drone_orient_sub = n.subscribe("/dji_sdk/attitude", 10, &pc_process::drone_orient_cb,this);
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
         tracked_obj_pub_local = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr_local", 1);
-
 
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
@@ -131,13 +132,43 @@ class pc_process{
         convert_to_pcl(msg);
         pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cropped_cloud(new pcl::PointCloud<pcl::PointXYZ>);
         tmp_cropped_cloud->is_dense = true;
+
+        // ////////////////////Filter out ground plane
+        // Create the segmentation object for the planar model and set all the parameters
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::SACSegmentation<pcl::PointXYZ> seg;
+        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
+        seg.setOptimizeCoefficients (true);
+        seg.setModelType (pcl::SACMODEL_PLANE);
+        seg.setMethodType (pcl::SAC_RANSAC);
+        seg.setMaxIterations (100);
+        seg.setDistanceThreshold (0.02);
+        // Segment the largest planar component from the remaining cloud
+        seg.setInputCloud (input_cloud);
+        seg.segment (*inliers, *coefficients);
+        // Extract the planar inliers from the input cloud
+        pcl::ExtractIndices<pcl::PointXYZ> extract;
+        extract.setInputCloud (input_cloud);
+        extract.setIndices (inliers);
+        extract.setNegative (false);
+        // Get the points associated with the planar surface
+        extract.filter (*cloud_plane);
+
+        // Remove the planar inliers, extract the rest
+        extract.setNegative (true);
+        extract.filter (*cloud_f);
+        *input_cloud = *cloud_f;
+        // //////////////////////////
+
         for (std::size_t i = 0; i < input_cloud->points.size(); ++i)
             {   
                 //Flipping the lidar coordinates to adjust for the upside down velodyne installation
                 float x = input_cloud->points[i].x;
                 float y = input_cloud->points[i].y;
                 float z = input_cloud->points[i].z;
-                if ((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)){    
+                if (((x>0 && y>0 && x/y >1.5526) || (x>0 && y<0 && x/y <-1.5526)) && sqrt(pow(x,2)+pow(y,2)) <= detect_range) {    
                     pcl::PointXYZ point;
                     point.x = x;
                     point.y = y;
@@ -145,6 +176,7 @@ class pc_process{
                     tmp_cropped_cloud->points.push_back(point);
                 }
             }
+
             this->cropped_cloud = tmp_cropped_cloud;
         }
 
@@ -207,10 +239,10 @@ class pc_process{
     
     
     void cluster(){
-                pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>);
+                pcl::PointCloud<pcl::PointXYZ>::Ptr tmp_cloud_cluster(new pcl::PointCloud<pcl::PointXYZ>) ;    
                 pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
                 tree->setInputCloud (cloud_in_bb);
-                        std::vector<pcl::PointIndices> cluster_indices;
+                std::vector<pcl::PointIndices> cluster_indices;
                 pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
                 ec.setClusterTolerance (0.2); // 2cm
                 ec.setMinClusterSize (5);
@@ -218,9 +250,8 @@ class pc_process{
                 ec.setSearchMethod (tree);
                 ec.setInputCloud(cloud_in_bb);
                 ec.extract (cluster_indices);
-
+                //Within the bounding box, find the cluster that is closer to the velodyne
                 if (cluster_indices.size() > 0){
-
                     int min_depth = 0;
                     int min_index = 0;
                     for (int i =0; i< cluster_indices.size();i++){
@@ -244,6 +275,7 @@ class pc_process{
                         }
                     
                     this->cloud_cluster = tmp_cloud_cluster;
+
                 }
 
     }
@@ -300,6 +332,7 @@ class pc_process{
     void publisher(){
         lidar_process::tracked_obj_arr tracked_objs;
         lidar_process::tracked_obj_arr tracked_objs_local;
+        tracked_objs.header.stamp = ros::Time::now();
         for (auto const& x : instance_pos_dict)
         {           
             lidar_process::tracked_obj tracked_obj_msg;
@@ -328,7 +361,6 @@ class pc_process{
 
     void bb_cb(const yolov3_sort:: BoundingBoxes msg){
         bbox_msg = msg;
-        cout<<"New call back" << endl;
         //loop through all bounding boxes
         for (int i =0; i<bbox_msg.bounding_boxes.size();i++){
             // instance ID of the object
@@ -337,7 +369,6 @@ class pc_process{
 
             // instance already being tracked and tacklet died, delete the obj
             if (instance_pos_dict.count(obj_indx) && bb.label==-1){
-                cout << "Deleted tracklet " << obj_indx<< endl;
                 instance_pos*inst_pos_ptr = instance_pos_dict[obj_indx];
                 instance_pos_dict.erase(obj_indx);
                 delete inst_pos_ptr;
@@ -346,7 +377,7 @@ class pc_process{
             // instance already being tracked, tacklet still active
             else if (instance_pos_dict.count(obj_indx) && bb.label!=-1){
                 if (get_points_in_bb(bb)==true)
-                {   cout << " Update old tracket " << obj_indx<< endl; 
+                { 
                     cluster();
                     //get position of the tracket 
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -357,7 +388,6 @@ class pc_process{
             //instance not being tracked yet. 
             else if (!instance_pos_dict.count(obj_indx) && bb.label!=-1 ){
 		        if (get_points_in_bb(bb)==true){
-                    cout << " added new tracket " << obj_indx<< endl; 
                     cluster();
                     //get position of the tracklet
                     instance_pos*inst_pos_ptr = get_pos(bb.label);
@@ -365,9 +395,8 @@ class pc_process{
                 }
             }
         }
-        cout<<"" << endl;
-    
     } 
+
 
     void cloud_cb(const sensor_msgs::PointCloud2ConstPtr& msg){
         point_cloud_msg = msg;

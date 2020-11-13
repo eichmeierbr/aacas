@@ -7,3 +7,5 @@ catkin_ws/src/yolov3_pytorch_ros/models/*.weights
 SDK/Onboard-SDK/build
 SDK/vcpkg/
 *.dae
+*.pth
+*.pyc

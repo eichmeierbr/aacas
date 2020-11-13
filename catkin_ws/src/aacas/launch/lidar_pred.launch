@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <launch>
-
-  <!-- Example Include Configuration File -->
-  <include file="$(find velodyne_pointcloud)/launch/VLP16_points.launch"></include>
-  <include file="$(find realsense2_camera)/launch/rs_camera.launch"></include>
-  <include file="$(find yolov3_sort)/launch/tracker.launch"></include>
   <include file="$(find lidar_process)/launch/launch_lidar_process.launch"></include>
   <include file="$(find traj_prediction)/launch/launch_traj_prediction.launch"></include>
   <node name="tf_broadcaster_node" pkg="traj_prediction" type="tf_broadcaster_node"  output ="screen" />
