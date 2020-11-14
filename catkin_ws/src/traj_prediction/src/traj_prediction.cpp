@@ -70,7 +70,7 @@ class traj_predictor{
         this->obj_poses_dict = obj_poses_dict;
         this-> obj_labels = obj_labels;
         tracked_obj_sub = n.subscribe ("/tracked_obj_pos_arr", 10, &traj_predictor::tracked_obj_cb,this);
-        obj_trajectory_pub = n.advertise<traj_prediction::tracked_obj_arr> ("predicted_obj_pos_arr", 1);
+        obj_trajectory_pub = n.advertise<traj_prediction::tracked_obj_arr> ("predicted_obj_pos_arr2", 1);
 
     }
 
