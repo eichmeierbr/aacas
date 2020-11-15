@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
   <!--Subscribe to camera image topic-->
-  <arg name="image_topic"  default="/camera/color/image_raw"/>
+  <!--arg name="image_topic"  default="/camera/color/image_raw"/-->
+  <arg name="image_topic"  default="/tracker_image"/>
 
   <!--Configurations-->
   <arg name="weights_name"  default="yolov3_drone_v2.pth"/>
@@ -9,8 +10,8 @@
   <arg name="classes_name"  default="custom.names"/>
 
   <!--Published topics-->
-  <arg name="tracked_objects_topic" default="tracked_objects"/>
-  <arg name="published_image_topic" default="tracker_image"/>
+  <arg name="tracked_objects_topic" default="tracked_objects2"/>
+  <arg name="published_image_topic" default="tracker_image2"/>
 
   <!--Detection confidence-->
   <arg name="confidence" default="0.95"/>
