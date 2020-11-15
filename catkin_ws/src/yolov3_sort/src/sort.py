@@ -55,8 +55,8 @@ class Tracklet():
         #self.kf.B = np.array([[dt, 0, 0, 0, 1, 0, 0, 0, 0, 0], 
         #                      [0, dt, 0, 0, 0, 1, 0, 0, 0, 0]]).T
 
-        self.kf.B = np.array([[dt, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
-                              [0, dt, 0, 0, 0, 0, 0, 0, 0, 0]]).T
+        self.kf.B = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
+                              [0, 1, 0, 0, 0, 0, 0, 0, 0, 0]],dtype=float).T
 
 
         if self.csrt:

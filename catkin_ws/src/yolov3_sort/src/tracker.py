@@ -29,7 +29,9 @@ class Tracker():
         self.bboxes = []
         self.tracklets = []
         self.object_count = 25 ######25
-        self.colors = []
+        #self.colors = []
+        #self.colors = np.random.randint(0, 255, (100, 3))
+        self.colors = np.zeros((100, 3), dtype=int)
 
 	    # Model parameters
         classes_name = rospy.get_param('~classes_name', 'custom.names')
@@ -117,6 +119,7 @@ class Tracker():
     def position_callback(self, msg):
         pt = msg.point
         self.drone_pos = np.array([pt.x, pt.y, pt.z])
+        #self.drone_pos = np.array([-pt.y, -pt.z, pt.x])
 
     def lidar_callback(self, msg):
         # object_id, point
@@ -124,7 +127,8 @@ class Tracker():
         for obj in msg.tracked_obj_arr:
             idx = obj.object_id
             pt = obj.point
-            self.XYZ[idx] = np.array([[pt.z], [-pt.y], [pt.x], [1.]])
+            #self.XYZ[idx] = np.array([[pt.z], [-pt.y], [pt.x], [1.]])
+            self.XYZ[idx] = np.array([[-pt.y], [-pt.z], [pt.x], [1.]])
 
     def yaw_pitch_roll(self):
         q0, q1, q2, q3 = self.quat[0],self.quat[1], self.quat[2], self.quat[3]
@@ -141,8 +145,6 @@ class Tracker():
         pitch = np.arcsin(t2)
         roll  = np.arctan2(t3, t4)
         yaw   = np.arctan2(t1, t0)
-        pitch = 0
-        roll = 0
 
         return yaw, pitch, roll
     
@@ -166,15 +168,14 @@ class Tracker():
                        [0, 0, 0, 1]])
         self.curr_trans = np.identity(4)
         self.curr_trans[:3, 3] = self.drone_pos
-        self.curr_trans = np.matmul(Rz, self.curr_trans)
-
-        curr_trans_inv = np.identity(4)
-        curr_trans_inv[:3, :3] = self.curr_trans[:3, :3].T
-        curr_trans_inv[:3, 3] = -np.matmul(self.curr_trans[:3, :3].T, self.curr_trans[:3, 3])
+        self.curr_trans = np.matmul(Rz, self.curr_trans) # lock roll and pitch
 
         # 2. to camera coordinates
+        # Drone coords --> rotate pi about x axis --> rotate -pi/2 about y axis --> get camera coords
+         
         x_offset = np.pi
         y_offset = -np.pi*0.5
+        z_offset = np.pi*0.5
         Rx_offset = np.array([[1,0,0,0],
                               [0,np.cos(x_offset),-np.sin(x_offset),0],
                               [0,np.sin(x_offset),np.cos(x_offset),0],
@@ -183,8 +184,21 @@ class Tracker():
                               [0,1,0,0],
                               [-np.sin(y_offset),0,np.cos(y_offset),0],
                               [0, 0, 0, 1]])
-        #self.dT = np.matmul(self.prev_trans , curr_trans_inv)  #drone rel transformation t-1 : t
-        self.dT = np.matmul(Ry_offset, np.matmul(Rx_offset, np.matmul(self.prev_trans , np.linalg.inv(self.curr_trans))))
+        Rz_offset = np.array([[np.cos(z_offset),-np.sin(z_offset),0, 0],
+                              [np.sin(z_offset),np.cos(z_offset),0, 0],
+                              [0, 0, 1, 0],
+                              [0, 0, 0, 1]])
+
+        self.curr_trans = np.matmul(Rz_offset, np.matmul(Ry_offset, np.matmul(Rx_offset, self.curr_trans)))
+
+        # Inverse of prev transform: H^-1 = [R^T | -R^T@P]
+        #                                   [000 | 1     ]
+
+        prev_trans_inv = np.identity(4)
+        prev_trans_inv[:3, :3] = self.prev_trans[:3, :3].T # align to origin
+        prev_trans_inv[:3, 3] = -np.matmul(self.prev_trans[:3, :3].T, self.prev_trans[:3, 3])
+
+        self.dT = np.matmul(prev_trans_inv , self.curr_trans)
 
     def compute_u(self):
         #Input: (self.tracklets)
@@ -198,28 +212,31 @@ class Tracker():
 
         self.update_drone_relative_transform()
         u = {}
-        #print(self.dT[:3, 3].ravel())
 
         # align indices
         for tr in self.tracklets:
-            x, y, w, h = tr.getState() #xywh
-            x_c = x + 0.5*w
-            y_c = y + 0.5*h
 
             if tr.idx in self.XYZ.keys():
+                x, y, w, h = tr.getState()[:4]
                 pt = self.XYZ[tr.idx] #relative position
 
-                u1 = np.matmul(np.matmul(self.K, self.prev_trans), pt)# K(H2*H1^-1)P
+                u1 = np.matmul(np.matmul(self.K, np.identity(4)), pt) # origin / global frame
                 u1 /= u1[-1]
-                u2 = np.matmul(np.matmul(self.K, self.curr_trans), pt)# K(H2*H1^-1)P
+                u2 = np.matmul(np.matmul(self.K, self.dT), pt) # dT is relative to origin
                 u2 /= u2[-1]
 
-                du = u2 - u1
-                print(-du[:2])
+                du = u1 - u2
+                #du = np.matmul(np.matmul(self.K, self.dT), pt)
+                #print(self.prev_trans[:, 3] - self.curr_trans[:, 3])
+                #print(self.dT)
+                #print(pt)
+                #print(x + 0.5*w, y + 0.5*h)
+                #print(u1.ravel(), u2.ravel())
+                #print(du[:2].ravel())
+                
                 u[tr.idx] = -du[:2] #
-
+        
         self.u = u
-        #print(self.u)
 
     def imageCb(self, data):
         try:
@@ -257,8 +274,12 @@ class Tracker():
         self.compute_u()
         
         for tr in self.tracklets:
-            #tr.predict(self.u[tr.idx]) # incorporate control inputs to existing tracklets, assign by idx
-            tr.predict()
+            if tr.idx in self.u.keys():
+                tr.predict(self.u[tr.idx]) # incorporate control inputs to existing tracklets, assign by idx
+                #tr.predict()
+            else:
+                tr.predict() # if no valid 3d bounding box
+
             tr.setActive(False)
 
         for yolo_box in self.bboxes:
@@ -279,7 +300,7 @@ class Tracker():
                 tr = Tracklet(self.object_count, yolo_box[-1], yolo_box[:-1])
                 self.tracklets.append(tr)
                 self.object_count += 1
-                self.colors.append((np.random.randint(0, 255, 3)))
+                #self.colors.append((np.random.randint(0, 255, 3)))
 
         for tr in self.tracklets:
             if tr.active==False:
@@ -324,8 +345,8 @@ class Tracker():
                 y2 = msg.bounding_boxes[i].ymax
                 w, h = x2-x1, y2-y1
                 if label != -1:
-                    #color = self.colors[msg.bounding_boxes[i].idx]
-                    color = [255, 0, 0]
+                    color = self.colors[msg.bounding_boxes[i].idx]
+                    #color = [255, 0, 0]
 
                     cv2.rectangle(img,
                                   (int(x1), int(y1)),
