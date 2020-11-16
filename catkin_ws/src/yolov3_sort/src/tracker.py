@@ -23,15 +23,15 @@ from lidar_process.msg import tracked_obj_arr, tracked_obj
 
 class Tracker():
     def __init__(self):
-        self.offline = True
-        self.publish_raw_bboxes = False
+        self.offline = False
+        self.publish_raw_bboxes = True
 
         self.bboxes = []
         self.tracklets = []
-        self.object_count = 25 ######25
-        #self.colors = []
+        self.object_count = 0 ######25
+        self.colors = []
         #self.colors = np.random.randint(0, 255, (100, 3))
-        self.colors = np.zeros((100, 3), dtype=int)
+        #self.colors = np.zeros((100, 3), dtype=int)
 
 	    # Model parameters
         classes_name = rospy.get_param('~classes_name', 'custom.names')

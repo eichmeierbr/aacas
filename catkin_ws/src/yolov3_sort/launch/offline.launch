@@ -1,20 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
   <!--Subscribe to camera image topic-->
-  <arg name="image_topic"  default="/camera/color/image_raw"/>
+  <!--arg name="image_topic"  default="/camera/color/image_raw"/-->
+  <arg name="image_topic"  default="/tracker_image"/>
 
-  <!--Configurations-->
-  <arg name="weights_name"  default="yolov3_drone_v2.pth"/>
-  <arg name="config_name"   default="yolov3-custom.cfg"/>
+  <!--Configurations: not available for offline mode-->
   <arg name="classes_name"  default="custom.names"/>
 
   <!--Published topics-->
-  <arg name="tracked_objects_topic" default="tracked_objects"/>
-  <arg name="published_image_topic" default="tracker_image"/>
-
-  <!--Detection confidence-->
-  <arg name="confidence" default="0.95"/>
-  <arg name="nms" default="0.1"/>
+  <arg name="tracked_objects_topic" default="tracked_objects_offline"/>
+  <arg name="published_image_topic" default="tracker_image_offline"/>
 
   <!--Node-->
   <node name="tracker_node" pkg="yolov3_sort" type="tracker.py" output="screen" respawn="true">
