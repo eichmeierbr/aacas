@@ -2,6 +2,7 @@
 
 import rospy
 import copy
+import operator
 import numpy as np
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion, PoseStamped
@@ -52,6 +53,9 @@ class vectFieldController:
         self.K_theta =  rospy.get_param('heading_k_theta')
         self.last_orbit_change_ = rospy.Time.now()
         self.change_orbit_wait_ = rospy.get_param('orbit_change_wait')
+        self.min_gap = rospy.get_param('obstacle_spacing', default=4)
+        self.orbit_dict = {}
+        self.orbit_changes = {}
 
         # Go to Goal Parameters
         self.g2g_sig =  rospy.get_param('g2g_sigma')
@@ -155,14 +159,29 @@ class vectFieldController:
         # If close to object, orbit
         if avoid:
             vels = []
-            for obstacle in closeObjects:
-                if self.change_orbit_wait_ < (rospy.Time.now() - obstacle.last_orbit_change_).to_sec():
-                    self.decideOrbitDirection(obstacle)
-                else:
-                    self.freq = obstacle.orbit
 
-                vel = self.getOrbit(obstacle.position)
-                mod = 1/(obstacle.distance)
+            closeObjects.sort(key=operator.attrgetter('distance'))
+            for i in range(len(closeObjects)):
+                lastChangeTime = (rospy.Time.now() - self.orbit_changes[closeObjects[i].id]).to_sec()
+                if self.change_orbit_wait_ < lastChangeTime:
+                    self.decideOrbitDirection(closeObjects[i])
+                    closeObjects[i].orbit = self.freq
+                    self.orbit_dict[closeObjects[i].id] = self.freq
+    
+                    for j in range(i):
+                        dist= np.linalg.norm(closeObjects[j].position - closeObjects[i].position)
+                        if dist < self.min_gap:
+                            closeObjects[i].orbit = copy.copy(closeObjects[j].orbit)
+                            self.orbit_dict[closeObjects[i].id] = closeObjects[i].orbit
+                            break
+
+                self.orbit_changes[closeObjects[i].id] = rospy.Time.now()
+
+            for i in range(len(closeObjects)):
+                if not closeObjects[i].id in self.orbit_dict: continue
+                self.freq = self.orbit_dict[closeObjects[i].id]
+                vel = self.getOrbit(closeObjects[i].position)
+                mod = 1/(closeObjects[i].distance)
                 # mod = np.exp(-1/(3*obstacle.distance))
                 vels.append(vel * mod)
             velDes[:3] = np.sum(vels,axis=0)
@@ -363,6 +382,12 @@ class vectFieldController:
             newObj.acceleration = np.array([obj.acc.x, obj.acc.y, obj.acc.z])
             newObj.id = obj.object_id
             newObj.distance = np.linalg.norm([obj.point.x - self.pos[0], obj.point.y - self.pos[1], obj.point.z - self.pos[2]])
+            if not newObj.id in self.orbit_dict:
+                self.orbit_dict[newObj.id] = newObj.orbit
+                self.orbit_changes[newObj.id] = rospy.Time(0)
+            else:
+                newObj.orbit = self.orbit_dict[newObj.id]
+                newObj.last_orbit_change_ = self.orbit_changes[newObj.id]
             self.in_detections.append(newObj)
 
 

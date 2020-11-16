@@ -6,18 +6,19 @@ waypoint_wait:            5.0
 
 waypoint_x: [0.0, 0.0]
 waypoint_y: [0.0, 20.0]
-waypoint_z: [2.0, 2.0]
+waypoint_z: [2.5, 2.5]
 
 # waypoint_x: [0.0, 20.0]
 # waypoint_y: [0.0, 0.0]
 # waypoint_z: [2.0, 2.0]
 
 # Orbit Parameters
-orbit_freq:               -1
+orbit_freq:               1
 orbit_k_conv:             0.01
 heading_k_theta:          1
-orbit_change_wait:        4
+orbit_change_wait:        10
 velocity_avoid_mod:       1.75
+obstacle_spacing:         4.5
 
 # Go to Goal Parameters
 g2g_sigma:                1.5
