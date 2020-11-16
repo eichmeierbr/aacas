@@ -6,6 +6,7 @@ from sensor_msgs.msg import Imu, Joy
 from nav_msgs.msg import Path
 import numpy as np
 from dji_m600_sim.srv import SimDroneTaskControl, SimDroneTaskControlResponse
+from dji_sdk.srv import SetLocalPosRef, SetLocalPosRefResponse
 
 # from PACKAGE_NAME.srv import SERVICE1, SERVICE2, etc
 
@@ -86,6 +87,7 @@ class DJI_simulator:
 
      ## Service Server Information
     self.task_ctrl_service_ = rospy.Service(rospy.get_param('takeoff_land_service_name'), SimDroneTaskControl, self.DroneTaskControl)
+    self.set_local_service_ = rospy.Service('/dji_sdk/set_local_pos_ref', SetLocalPosRef, self.SetLocalPosition)
 
 
 
@@ -278,6 +280,10 @@ class DJI_simulator:
 
       self.performMotion()
 
+
+  def SetLocalPosition(self, msg):
+    rospy.loginfo('Local Position Set')
+    return SetLocalPosRefResponse(True)
 
 if __name__ == '__main__': 
   try:

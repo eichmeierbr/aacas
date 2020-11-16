@@ -91,6 +91,7 @@ class Tracker():
         self.published_image_topic = rospy.get_param('~published_image_topic')
 
         self.pub = rospy.Publisher(self.tracked_objects_topic, BoundingBoxes, queue_size=10)
+	self.raw_pub = rospy.Publisher("/raw_bboxes", BoundingBoxes, queue_size=10)
         self.img_pub = rospy.Publisher(self.published_image_topic, Image, queue_size=10)
 
         if self.offline:
@@ -326,6 +327,7 @@ class Tracker():
                     self.tracklets.remove(tr)
 
         self.pub.publish(bboxes)
+	self.raw_pub.publish(raw_bboxes)
         self.visualize(bboxes, cv_image)
 
         return True

@@ -17,3 +17,5 @@ gps_delay:        1   # Throw error
 battery_delay:    2   # Throw warning   
 
 rc_delay:         0.5
+
+safety_topic_name: 'safety_status'

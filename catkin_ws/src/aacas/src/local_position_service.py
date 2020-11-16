@@ -31,10 +31,10 @@ if __name__ == '__main__':
     caller = serviceCaller()
 
     ########### Wait for GPS Lock  #############
-    rospy.loginfo("Getting Satellite Fix")
-    while caller.gps_health < rospy.get_param('min_gps_health'):
-        rate.sleep()
-    rospy.loginfo("Obtained Satellite Fix")
+    # rospy.loginfo("Getting Satellite Fix")
+    # while caller.gps_health < rospy.get_param('min_gps_health'):
+        # rate.sleep()
+    # rospy.loginfo("Obtained Satellite Fix")
 
 
     set_pos_name = 'dji_sdk/set_local_pos_ref'
