@@ -275,7 +275,7 @@ class Tracker():
 
         self.pub.publish(bboxes)
 	
-        self.visualize(bboxes, cv_image)
+        self.visualize(raw_bboxes, cv_image)
 
         return True
 
