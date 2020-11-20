@@ -235,7 +235,7 @@ class Tracker():
                 #print(u1.ravel(), u2.ravel())
                 #print(du[:2].ravel())
                 
-                u[tr.idx] = -du[:2] #
+                u[tr.idx] = du[:2] #
         
         self.u = u
 
