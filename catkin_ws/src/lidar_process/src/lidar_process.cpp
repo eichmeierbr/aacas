@@ -67,6 +67,8 @@ class pc_process{
     ros::Subscriber drone_pos_sub;
     ros::Subscriber drone_orient_sub;
     ros::Publisher tracked_obj_pub;
+    ros::Publisher tracked_obj_pub_local;
+
     // Input Cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud;
     // Cropped Cloud
@@ -109,6 +111,8 @@ class pc_process{
         cloud_sub = n.subscribe ("/velodyne_points", 10, &pc_process::cloud_cb,this);
         bb_sub = n.subscribe ("/tracked_objects", 10, &pc_process::bb_cb, this);
         tracked_obj_pub = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr", 1);
+        tracked_obj_pub_local = n.advertise<lidar_process::tracked_obj_arr> ("tracked_obj_pos_arr_local", 1);
+
         // calibrated from matlab
         intrinsics << 574.0198, 0.0, 318.1983,
                     0.0, 575.2453, 246.5657, 
@@ -327,6 +331,7 @@ class pc_process{
 
     void publisher(){
         lidar_process::tracked_obj_arr tracked_objs;
+        lidar_process::tracked_obj_arr tracked_objs_local;
         tracked_objs.header.stamp = ros::Time::now();
         for (auto const& x : instance_pos_dict)
         {           
@@ -337,7 +342,20 @@ class pc_process{
             tracked_obj_msg.header.stamp = ros::Time::now();
             tracked_obj_msg.object_label = x.second -> object_label;
             tracked_objs.tracked_obj_arr.push_back(tracked_obj_msg);
+
+
+            lidar_process::tracked_obj tracked_obj_msg_local;
+            tracked_obj_msg_local.object_id = x.first; 
+            geometry_msgs::Point point_local;
+            point_local.x = x.second->x;
+            point_local.y = -x.second->y;
+            point_local.z = -x.second->z;
+            tracked_obj_msg_local.point = point_local;
+            tracked_obj_msg_local.header.stamp = ros::Time::now();
+            tracked_obj_msg_local.object_label = x.second -> object_label;
+            tracked_objs_local.tracked_obj_arr.push_back(tracked_obj_msg_local);
         }
+        tracked_obj_pub_local.publish(tracked_objs_local);
         tracked_obj_pub.publish(tracked_objs);
     }
 

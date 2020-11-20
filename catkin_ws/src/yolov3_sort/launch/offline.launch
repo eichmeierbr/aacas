@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!--Subscribe to camera image topic-->
+  <!--arg name="image_topic"  default="/camera/color/image_raw"/-->
+  <arg name="image_topic"  default="/tracker_image"/>
+
+  <!--Configurations: not available for offline mode-->
+  <arg name="classes_name"  default="custom.names"/>
+
+  <!--Published topics-->
+  <arg name="tracked_objects_topic" default="tracked_objects_offline"/>
+  <arg name="published_image_topic" default="tracker_image_offline"/>
+
+  <!--Node-->
+  <node name="tracker_node" pkg="yolov3_sort" type="tracker.py" output="screen" respawn="true">
+    <param name="image_topic"  value="$(arg image_topic)"/>
+    <param name="weights_name" value="$(arg weights_name)"/>
+    <param name="config_name"  value="$(arg config_name)"/>
+    <param name="classes_name" value="$(arg classes_name)"/>
+
+    <param name="tracked_objects_topic" value="$(arg tracked_objects_topic)"/>
+    <param name="published_image_topic" value="$(arg published_image_topic)"/>
+    <param name="confidence" value="$(arg confidence)"/>
+
+  </node>
+</launch>

@@ -2,65 +2,89 @@
 
 from __future__ import division
 
-from models import *
-from utils.utils import *
-from utils.datasets import *
 from sort import iou, Tracklet
-from detector import Detector
 
+#from models import models 
 import cv2
 import numpy as np
 import os, sys
 
-import torch
 import rospy
 from rospkg import RosPack
 from cv_bridge import CvBridge, CvBridgeError
+from geometry_msgs.msg import QuaternionStamped, Vector3Stamped, PointStamped, Point, Vector3, Quaternion
 
 package = RosPack()
 package_path = package.get_path('yolov3_sort')
 
 from sensor_msgs.msg import Image
 from yolov3_sort.msg import BoundingBox, BoundingBoxes
+from lidar_process.msg import tracked_obj_arr, tracked_obj
 
 class Tracker():
     def __init__(self):
-        weights_name = rospy.get_param('~weights_name')
-        self.weights_path = os.path.join(package_path, 'weights', weights_name)
-        if not os.path.isfile(self.weights_path):
-            raise IOError("weights not found :(")
+        self.offline = False
+        self.publish_raw_bboxes = True
 
-        config_name = rospy.get_param('~config_name', 'yolov3-custom.cfg')
-        self.config_path = os.path.join(package_path, 'config', config_name)
+        self.bboxes = []
+        self.tracklets = []
+        self.object_count = 0 ######25
+        self.colors = []
+        #self.colors = np.random.randint(0, 255, (100, 3))
+        #self.colors = np.zeros((100, 3), dtype=int)
+
+	    # Model parameters
         classes_name = rospy.get_param('~classes_name', 'custom.names')
         self.class_path = os.path.join(package_path, 'config', classes_name)
-
         self.class_list = []
         f = open(self.class_path, "r")
         for x in f:
             self.class_list.append(x.rstrip())
 
-        self.conf_thres = rospy.get_param('~confidence', 0.9)
-        self.nms_thres = rospy.get_param('~nms', 0.1)
-        self.img_size = 416
+        if not self.offline:
+            from detector import Detector
 
-        # Load network
-        self.yolo = Detector(self.config_path,
-                             self.weights_path,
-                             self.class_path,
-                             self.conf_thres,
-                             self.nms_thres,
-                             self.img_size)
+    	    weights_name = rospy.get_param('~weights_name')
+            self.weights_path = os.path.join(package_path, 'weights', weights_name)
+            if not os.path.isfile(self.weights_path):
+                raise IOError("weights not found :(")
 
-        self.tracklets = []
-        self.colors = []
-        self.object_count = 0
-        rospy.loginfo("Loaded Darknet for YOLO object detection.")
+            config_name = rospy.get_param('~config_name', 'yolov3-custom.cfg')
+            self.config_path = os.path.join(package_path, 'config', config_name)
+            self.conf_thres = rospy.get_param('~confidence', 0.9)
+            self.nms_thres = rospy.get_param('~nms', 0.1)
+            self.img_size = 416
+
+           # Load network
+            self.yolo = Detector(self.config_path,
+                                 self.weights_path,
+                                 self.class_path,
+                                 self.conf_thres,
+                                 self.nms_thres,
+                                 self.img_size)
+
+        self.drone_pos = np.zeros(3)
+        self.quat = np.zeros(4)
+        self.prev_trans = np.identity(4)
+        self.curr_trans = np.identity(4)
+
+        # Store extrinsic matrix & intrinsic matrix
+        self.dT = np.identity(4)
+        self.K = np.array([[574.0198,      0.0, 318.1983, 0.0],
+                           [     0.0, 575.2453, 246.5657, 0.0],
+                           [     0.0,      0.0,      1.0, 0.0]])
+        # Store 3d points (center, homogeneous)
+        self.XYZ = {}
+        # Store control inputs
+        self.u = {}
 
         # Define subscriber & callback function
         self.bridge = CvBridge()
         self.image_topic = rospy.get_param('~image_topic', '/camera/rgb/image_raw')
-        self.sub = rospy.Subscriber(self.image_topic, Image, self.imageCb, queue_size=1, buff_size = 2**24)
+        self.img_sub = rospy.Subscriber(self.image_topic, Image, self.imageCb, queue_size=1, buff_size = 2**24)
+        self.pos_sub = rospy.Subscriber('/dji_sdk/local_position', PointStamped, self.position_callback, queue_size=1)
+        self.att_sub = rospy.Subscriber('/dji_sdk/attitude', QuaternionStamped, self.attitude_callback, queue_size=1)
+        self.lidar_sub = rospy.Subscriber('/tracked_obj_pos_arr_local', tracked_obj_arr, self.lidar_callback, queue_size=1)
 
         # Define publisher & topics
         self.tracked_objects_topic = rospy.get_param('~tracked_objects_topic')
@@ -69,9 +93,151 @@ class Tracker():
         self.pub = rospy.Publisher(self.tracked_objects_topic, BoundingBoxes, queue_size=10)
 	self.raw_pub = rospy.Publisher("/raw_bboxes", BoundingBoxes, queue_size=10)
         self.img_pub = rospy.Publisher(self.published_image_topic, Image, queue_size=10)
-        rospy.loginfo("Launched node for object tracking.")
 
+        if self.offline:
+            self.bbox_topic = rospy.get_param('~bbox_topic', '/raw_bboxes')
+            self.bbox_sub = rospy.Subscriber(self.bbox_topic, BoundingBoxes, self.bbox_callback, queue_size=1)
+
+        if self.publish_raw_bboxes:
+            self.raw_pub = rospy.Publisher("/raw_bboxes", BoundingBoxes, queue_size=10)
+
+        rospy.loginfo("Launched node for object tracking.")
         rospy.spin()
+
+    
+    def bbox_callback(self, msg): # get detections from bag
+        if not self.offline:
+            pass
+        else:
+            self.bboxes = []
+            for b in msg.bounding_boxes:
+                self.bboxes.append(np.array([b.xmin, b.ymin, b.xmax-b.xmin, b.ymax-b.ymin, b.label]))
+
+    def attitude_callback(self, msg):
+        q = msg.quaternion
+        self.quat = np.array([q.w, q.x, q.y, q.z])
+
+    def position_callback(self, msg):
+        pt = msg.point
+        self.drone_pos = np.array([pt.x, pt.y, pt.z])
+        #self.drone_pos = np.array([-pt.y, -pt.z, pt.x])
+
+    def lidar_callback(self, msg):
+        # object_id, point
+        self.XYZ = {} # clear dictionary
+        for obj in msg.tracked_obj_arr:
+            idx = obj.object_id
+            pt = obj.point
+            #self.XYZ[idx] = np.array([[pt.z], [-pt.y], [pt.x], [1.]])
+            self.XYZ[idx] = np.array([[-pt.y], [-pt.z], [pt.x], [1.]])
+
+    def yaw_pitch_roll(self):
+        q0, q1, q2, q3 = self.quat[0],self.quat[1], self.quat[2], self.quat[3]
+        q2sqr = q2 * q2
+        t0 = -2.0 * (q2sqr + q3 * q3) + 1.0
+        t1 = +2.0 * (q1 * q2 + q0 * q3)
+        t2 = -2.0 * (q1 * q3 - q0 * q2)
+        t3 = +2.0 * (q2 * q3 + q0 * q1)
+        t4 = -2.0 * (q1 * q1 + q2sqr) + 1.0
+
+        if t2 > 1.0:        t2 = 1.0
+        if t2 < -1.0:       t2 = -1.0
+
+        pitch = np.arcsin(t2)
+        roll  = np.arctan2(t3, t4)
+        yaw   = np.arctan2(t1, t0)
+
+        return yaw, pitch, roll
+    
+    
+    def update_drone_relative_transform(self):
+        # 1. compute relative transform in drone coords
+        yaw, pitch, roll = self.yaw_pitch_roll()
+
+        self.prev_trans = self.curr_trans.copy() 
+        Rx = np.array([[1,0,0,0],
+                       [0,np.cos(roll),-np.sin(roll),0, 1],
+                       [0,np.sin(roll),np.cos(roll),0, 1],
+                       [0, 0, 0, 1]])
+        Ry = np.array([[np.cos(pitch),0,np.sin(pitch), 0],
+                       [0,1,0,0],
+                       [-np.sin(pitch),0,np.cos(pitch),0],
+                       [0, 0, 0, 1]])
+        Rz = np.array([[np.cos(yaw),-np.sin(yaw),0, 0],
+                       [np.sin(yaw),np.cos(yaw),0, 0],
+                       [0, 0, 1, 0],
+                       [0, 0, 0, 1]])
+        self.curr_trans = np.identity(4)
+        self.curr_trans[:3, 3] = self.drone_pos
+        self.curr_trans = np.matmul(Rz, self.curr_trans) # lock roll and pitch
+
+        # 2. to camera coordinates
+        # Drone coords --> rotate pi about x axis --> rotate -pi/2 about y axis --> get camera coords
+         
+        x_offset = np.pi
+        y_offset = -np.pi*0.5
+        z_offset = np.pi*0.5
+        Rx_offset = np.array([[1,0,0,0],
+                              [0,np.cos(x_offset),-np.sin(x_offset),0],
+                              [0,np.sin(x_offset),np.cos(x_offset),0],
+                              [0, 0, 0, 1]])
+        Ry_offset = np.array([[np.cos(y_offset),0,np.sin(y_offset), 0],
+                              [0,1,0,0],
+                              [-np.sin(y_offset),0,np.cos(y_offset),0],
+                              [0, 0, 0, 1]])
+        Rz_offset = np.array([[np.cos(z_offset),-np.sin(z_offset),0, 0],
+                              [np.sin(z_offset),np.cos(z_offset),0, 0],
+                              [0, 0, 1, 0],
+                              [0, 0, 0, 1]])
+
+        self.curr_trans = np.matmul(Rz_offset, np.matmul(Ry_offset, np.matmul(Rx_offset, self.curr_trans)))
+
+        # Inverse of prev transform: H^-1 = [R^T | -R^T@P]
+        #                                   [000 | 1     ]
+
+        prev_trans_inv = np.identity(4)
+        prev_trans_inv[:3, :3] = self.prev_trans[:3, :3].T # align to origin
+        prev_trans_inv[:3, 3] = -np.matmul(self.prev_trans[:3, :3].T, self.prev_trans[:3, 3])
+
+        self.dT = np.matmul(prev_trans_inv , self.curr_trans)
+
+    def compute_u(self):
+        #Input: (self.tracklets)
+        #self.u1        N*(x, y): 2D top left corners of bounding boxes (tracklet state)
+        #self.dT          (4, 4): Relative transformation
+        #self.K           (4, 4): Intrinsics
+        #self.XYZ N*(x, y, z, 1): Homogeneous 3D centers of objects
+
+        #Output: 
+        #self.u2     N*(x, y): 
+
+        self.update_drone_relative_transform()
+        u = {}
+
+        # align indices
+        for tr in self.tracklets:
+
+            if tr.idx in self.XYZ.keys():
+                x, y, w, h = tr.getState()[:4]
+                pt = self.XYZ[tr.idx] #relative position
+
+                u1 = np.matmul(np.matmul(self.K, np.identity(4)), pt) # origin / global frame
+                u1 /= u1[-1]
+                u2 = np.matmul(np.matmul(self.K, self.dT), pt) # dT is relative to origin
+                u2 /= u2[-1]
+
+                du = u1 - u2
+                #du = np.matmul(np.matmul(self.K, self.dT), pt)
+                #print(self.prev_trans[:, 3] - self.curr_trans[:, 3])
+                #print(self.dT)
+                #print(pt)
+                #print(x + 0.5*w, y + 0.5*h)
+                #print(u1.ravel(), u2.ravel())
+                #print(du[:2].ravel())
+                
+                u[tr.idx] = du[:2] #
+        
+        self.u = u
 
     def imageCb(self, data):
         try:
@@ -80,31 +246,45 @@ class Tracker():
         except CvBridgeError as e:
             print(e)
 
-        # Store tracking results
-        raw_bboxes = BoundingBoxes()
-        raw_bboxes.header = data.header
-        raw_bboxes.image_header = data.header
+	    # Store raw detections
+        if not self.offline:
+            self.bboxes = self.yolo.detect(cv_image)
+        
+        if self.publish_raw_bboxes:
+            raw_bboxes = BoundingBoxes()
+            raw_bboxes.header = data.header
+            raw_bboxes.image_header = data.header
 
-        yolo_boxes = self.yolo.detect(cv_image)
+            for [x, y, w, h, c] in self.bboxes:
+                bbox_msg = BoundingBox()
+                bbox_msg.xmin = x
+                bbox_msg.ymin = y
+                bbox_msg.xmax = x + w
+                bbox_msg.ymax = y + h
+                bbox_msg.label = c
+                bbox_msg.idx = -1
+                raw_bboxes.bounding_boxes.append(bbox_msg)
 
-        for [x, y, w, h, c] in yolo_boxes:
-            bbox_msg = BoundingBox()
-            bbox_msg.xmin = x
-            bbox_msg.ymin = y
-            bbox_msg.xmax = x + w
-            bbox_msg.ymax = y + h
-            bbox_msg.label = c
-            bbox_msg.idx = 0
-            raw_bboxes.bounding_boxes.append(bbox_msg)
+	        self.raw_pub.publish(raw_bboxes)
 
+        # Store tracking results (to publish)
         bboxes = BoundingBoxes()
         bboxes.header = data.header
         bboxes.image_header = data.header
-
+        
+        self.compute_u()
+        
         for tr in self.tracklets:
+            if tr.idx in self.u.keys():
+                tr.predict(self.u[tr.idx]) # incorporate control inputs to existing tracklets, assign by idx
+                #tr.predict()
+            else:
+                tr.predict() # if no valid 3d bounding box
+
             tr.setActive(False)
 
-        for yolo_box in yolo_boxes:
+        for yolo_box in self.bboxes:
+            
             match = 0
             for tr in self.tracklets:
                 if yolo_box[-1] != tr.label:
@@ -121,37 +301,30 @@ class Tracker():
                 tr = Tracklet(self.object_count, yolo_box[-1], yolo_box[:-1])
                 self.tracklets.append(tr)
                 self.object_count += 1
-                self.colors.append((np.random.randint(0, 255, 3)))
+                #self.colors.append((np.random.randint(0, 255, 3)))
 
         for tr in self.tracklets:
             if tr.active==False:
                 tr.addTimeout()
 
-            #if tr.active:
             if True:
                 (x, y, w, h) = tr.getState()
                 bbox_msg = BoundingBox()
                 if tr.timeout > 2:
                     bbox_msg.label = -1
 
-                else:
+                else:                      
                     bbox_msg.label = tr.label
 
                 bbox_msg.xmin = x
                 bbox_msg.ymin = y
                 bbox_msg.xmax = x + w
                 bbox_msg.ymax = y + h
-                #bbox_msg.label = tr.label
                 bbox_msg.idx = tr.idx
                 bboxes.bounding_boxes.append(bbox_msg)
 
                 if tr.timeout > 2:
                     self.tracklets.remove(tr)
-
-                else:
-                    tr.predict()
-                    #tr.addLength()
-                    #rospy.loginfo(str(tr.length))
 
         self.pub.publish(bboxes)
 	self.raw_pub.publish(raw_bboxes)
@@ -175,6 +348,7 @@ class Tracker():
                 w, h = x2-x1, y2-y1
                 if label != -1:
                     color = self.colors[msg.bounding_boxes[i].idx]
+                    #color = [255, 0, 0]
 
                     cv2.rectangle(img,
                                   (int(x1), int(y1)),
